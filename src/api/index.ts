@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
 import express from 'express';
 
 const server = express();
@@ -11,12 +12,15 @@ async function createServer() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
 
-    if (process.env.NODE_ENV === 'stage') {
+    app.useGlobalPipes(new ValidationPipe());
+    const env = process.env.NODE_ENV || 'development';
+    if (env === 'development' || env === 'stage' || process.env.VERCEL) {
       const config = new DocumentBuilder()
         .setTitle('Prime Auto API')
         .setDescription('Internal API docs')
         .setVersion('1.0')
         .addTag('prime-auto')
+        .addBearerAuth()
         .build();
 
       const document = SwaggerModule.createDocument(app, config);
