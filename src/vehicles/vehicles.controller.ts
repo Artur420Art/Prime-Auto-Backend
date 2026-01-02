@@ -40,7 +40,7 @@ export class VehiclesController {
     ) file?: Express.Multer.File,
   ) {
     if (file) {
-      createVehicleDto.invoice = file.path;
+      createVehicleDto.invoice = file.path || (file as any).location || 'memory:' + file.originalname;
     }
     return this.vehiclesService.create(createVehicleDto);
   }
@@ -87,7 +87,7 @@ export class VehiclesController {
     ) file?: Express.Multer.File,
   ) {
     if (file) {
-      updateVehicleDto.invoice = file.path;
+      updateVehicleDto.invoice = file.path || (file as any).location || 'memory:' + file.originalname;
     }
     return this.vehiclesService.update(id, updateVehicleDto);
   }
