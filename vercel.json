@@ -1,7 +1,11 @@
 {
-  "version" : 2,
+  "version": 2,
   "functions": {
-    "api/index.ts": {}
+    "api/index.ts": {
+      "runtime": "nodejs18.x",
+      "memory": 1024,
+      "maxDuration": 10
+    }
   },
   "routes": [
     {
