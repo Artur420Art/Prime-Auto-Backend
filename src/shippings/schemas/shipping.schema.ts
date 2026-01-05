@@ -14,7 +14,7 @@ export class Shipping extends Document {
   city: string;
 
   @ApiProperty()
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, min: 0 })
   shipping: number;
 }
 

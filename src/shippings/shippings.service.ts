@@ -86,6 +86,16 @@ export class ShippingsService {
       query.user = user.userId;
     }
 
-    await this.shippingModel.updateMany(query, { $inc: { shipping: amount } }).exec();
+    await this.shippingModel
+      .updateMany(query, [
+        {
+          $set: {
+            shipping: {
+              $max: [0, { $add: ['$shipping', amount] }],
+            },
+          },
+        },
+      ])
+      .exec();
   }
 }
