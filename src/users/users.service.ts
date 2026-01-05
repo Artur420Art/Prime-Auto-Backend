@@ -58,7 +58,14 @@ export class UsersService {
   async findAll(role?: Role): Promise<User[]> {
     this.logger.log(`Finding users${role ? ` with role: ${role}` : ''}`);
     const query = role ? { roles: role } : {};
-    return this.userModel.find(query).exec();
+    return this.userModel.find(query, {
+      password: 0,
+      roles: 0,
+      createdAt: 0,
+      updatedAt: 0,
+      __v: 0,
+      _id: 0,
+    }).exec();
   }
 
   async updatePassword(email: string, newPasswordHash: string): Promise<User | null> {
