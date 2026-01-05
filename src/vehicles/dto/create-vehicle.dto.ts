@@ -18,7 +18,8 @@ export class CreateVehicleDto {
   @IsDateString()
   purchaseDate: string;
 
-  @ApiProperty({ enum: VehicleModel })
+  @ApiProperty()
+  @IsEnum(VehicleModel)
   model: VehicleModel
 
   @ApiProperty()
@@ -33,7 +34,6 @@ export class CreateVehicleDto {
 
   @ApiProperty({ enum: Auction, required: false })
   @IsOptional()
-  @IsEnum(() => Auction)
   auction?: Auction;
 
   @ApiProperty({ required: false })
