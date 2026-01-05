@@ -72,6 +72,6 @@ export class ShippingsController {
   @ApiOperation({ summary: 'Increase all shipping prices by a specified amount' })
   @ApiOkResponse({ description: 'All shipping prices increased successfully' })
   increasePrices(@Body() body: IncreaseAllAmmountDto, @Request() req) {
-    return this.shippingsService.increaseAllPrices(body.ammount, req.user);
+    return this.shippingsService.increaseAllPrices(body.amount, req.user);
   }
 }
