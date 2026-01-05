@@ -11,6 +11,7 @@ let cachedServer;
 async function createServer() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+    app.enableCors();
 
     app.useGlobalPipes(new ValidationPipe());
     const env = process.env.NODE_ENV || 'development';
@@ -39,7 +40,6 @@ async function createServer() {
         ],
       });
     }
-
     await app.init();
     cachedServer = server;
   }
