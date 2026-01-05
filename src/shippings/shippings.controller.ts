@@ -10,7 +10,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { ShippingsService } from './shippings.service';
-import { CreateShippingDto } from './dto/create-shipping.dto';
+import { CreateShippingDto, IncreaseAllAmmountDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -71,7 +71,7 @@ export class ShippingsController {
   @Post('increase-prices')
   @ApiOperation({ summary: 'Increase all shipping prices by a specified amount' })
   @ApiOkResponse({ description: 'All shipping prices increased successfully' })
-  increasePrices(@Body('amount') amount: number, @Request() req) {
-    return this.shippingsService.increaseAllPrices(amount, req.user);
+  increasePrices(@Body() body: IncreaseAllAmmountDto, @Request() req) {
+    return this.shippingsService.increaseAllPrices(body.ammount, req.user);
   }
 }

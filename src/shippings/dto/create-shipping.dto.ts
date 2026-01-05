@@ -10,3 +10,9 @@ export class CreateShippingDto {
   @IsNumber()
   shipping: number;
 }
+
+export class IncreaseAllAmmountDto {
+  @ApiProperty()
+  @IsNumber()
+  ammount: number
+}
