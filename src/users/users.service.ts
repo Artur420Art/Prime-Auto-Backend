@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
@@ -8,9 +8,12 @@ import { Role } from './enums/role.enum';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
   private async generateUniqueCustomerId(): Promise<string> {
+    this.logger.log('Generating unique customer ID');
     let customerId = '';
     let exists = true;
     while (exists) {
@@ -20,10 +23,12 @@ export class UsersService {
         exists = false;
       }
     }
+    this.logger.log(`Generated customer ID: ${customerId}`);
     return customerId;
   }
 
   async create(registerDto: RegisterDto, roles: Role[] = [Role.CLIENT]): Promise<User> {
+    this.logger.log(`Creating user with email: ${registerDto.email}`);
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const customerId = await this.generateUniqueCustomerId();
     const createdUser = new this.userModel({
@@ -36,18 +41,22 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
+    this.logger.log(`Finding user by email: ${email}`);
     return this.userModel.findOne({ email }).exec();
   }
 
   async findById(id: string): Promise<User | null> {
+    this.logger.log(`Finding user by ID: ${id}`);
     return this.userModel.findById(id).exec();
   }
 
   async findByCustomerId(customerId: string): Promise<User | null> {
+    this.logger.log(`Finding user by customer ID: ${customerId}`);
     return this.userModel.findOne({ customerId }).exec();
   }
 
   async updatePassword(email: string, newPasswordHash: string): Promise<User | null> {
+    this.logger.log(`Updating password for user: ${email}`);
     return this.userModel.findOneAndUpdate(
       { email },
       { 
@@ -59,6 +68,7 @@ export class UsersService {
   }
 
   async updateEmail(oldEmail: string, newEmail: string): Promise<User | null> {
+    this.logger.log(`Updating email for user: ${oldEmail} to ${newEmail}`);
     return this.userModel.findOneAndUpdate(
       { email: oldEmail },
       { 
