@@ -17,9 +17,12 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { VehicleType } from './enums/vehicle-type.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes } from '@nestjs/swagger';
+import { ApiConsumes, ApiTags, ApiOperation, ApiResponse, ApiOkResponse, ApiCreatedResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Vehicle } from './schemas/vehicle.schema';
 
 
+@ApiTags('vehicles')
+@ApiBearerAuth()
 @Controller('vehicles')
 @UseGuards(JwtAuthGuard)
 export class VehiclesController {
@@ -28,6 +31,8 @@ export class VehiclesController {
   @Post()
   @UseInterceptors(FileInterceptor('invoice'))
   @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a new vehicle' })
+  @ApiCreatedResponse({ type: Vehicle })
   create(
     @Body() createVehicleDto: CreateVehicleDto,
     @UploadedFile(
@@ -46,26 +51,36 @@ export class VehiclesController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all vehicles' })
+  @ApiOkResponse({ type: [Vehicle] })
   findAll() {
     return this.vehiclesService.findAll();
   }
 
   @Get('client/:clientId')
+  @ApiOperation({ summary: 'Get vehicles by client ID' })
+  @ApiOkResponse({ type: [Vehicle] })
   findByClient(@Param('clientId') clientId: string) {
     return this.vehiclesService.findByClient(clientId);
   }
 
   @Get('customer/:customerId')
+  @ApiOperation({ summary: 'Get vehicles by customer ID' })
+  @ApiOkResponse({ type: [Vehicle] })
   findByCustomerId(@Param('customerId') customerId: string) {
     return this.vehiclesService.findByCustomerId(customerId);
   }
 
   @Get('models')
+  @ApiOperation({ summary: 'Get available models by vehicle type' })
+  @ApiOkResponse({ type: [String] })
   getModelsByType(@Query('type') type: VehicleType) {
     return this.vehiclesService.getModelsByType(type);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a vehicle by ID' })
+  @ApiOkResponse({ type: Vehicle })
   findOne(@Param('id') id: string) {
     return this.vehiclesService.findOne(id);
   }
@@ -73,6 +88,8 @@ export class VehiclesController {
   @Patch(':id')
   @UseInterceptors(FileInterceptor('invoice'))
   @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update a vehicle' })
+  @ApiOkResponse({ type: Vehicle })
   update(
     @Param('id') id: string,
     @Body() updateVehicleDto: UpdateVehicleDto,
@@ -93,6 +110,8 @@ export class VehiclesController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a vehicle' })
+  @ApiOkResponse({ description: 'Vehicle deleted successfully' })
   remove(@Param('id') id: string) {
     return this.vehiclesService.remove(id);
   }

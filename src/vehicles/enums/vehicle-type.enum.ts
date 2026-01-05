@@ -12,3 +12,11 @@ export enum VehicleType {
   SCOOTER = 'scooter',
   OTHER = 'other',
 }
+
+export enum VehicleModel {
+  BMW = 'bmw'
+}
+
+export enum Auction {
+ COPART = 'copart'
+}

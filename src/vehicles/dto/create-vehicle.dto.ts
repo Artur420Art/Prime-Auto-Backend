@@ -1,5 +1,5 @@
-import { IsEnum, IsNumber, IsString, IsOptional, IsDateString, IsNotEmpty } from 'class-validator';
-import { VehicleType } from '../enums/vehicle-type.enum';
+import { IsEnum, IsString, IsOptional, IsDateString, IsNotEmpty } from 'class-validator';
+import { VehicleModel, VehicleType, Auction } from '../enums/vehicle-type.enum';
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateVehicleDto {
@@ -8,7 +8,7 @@ export class CreateVehicleDto {
   @IsString()
   client: string;
 
-  @ApiProperty()
+  @ApiProperty({ enum: VehicleType })
   @IsNotEmpty()
   @IsEnum(VehicleType)
   type: VehicleType;
@@ -18,23 +18,30 @@ export class CreateVehicleDto {
   @IsDateString()
   purchaseDate: string;
 
+  @ApiProperty({ enum: VehicleModel })
+  model: VehicleModel
+
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
   year: number;
 
+  @ApiProperty()
   @IsNotEmpty()
   @IsString()
   vehicleModel: string;
 
+  @ApiProperty({ enum: Auction, required: false })
   @IsOptional()
-  @IsString()
-  auction?: string;
+  @IsEnum(() => Auction)
+  auction?: Auction;
 
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   city?: string;
 
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   lot?: string;
@@ -48,6 +55,7 @@ export class CreateVehicleDto {
   @IsString()
   autoPrice: number;
 
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   customerNotes?: string;

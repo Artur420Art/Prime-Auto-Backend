@@ -7,8 +7,20 @@ export class User extends Document {
   @Prop({ unique: true, sparse: true })
   customerId: string;
 
+  @Prop()
+  firstName: string
+
+  @Prop()
+  lastName: string
+
+  @Prop({required: true})
+  userName: string
+
   @Prop({ required: true, unique: true })
   email: string;
+
+  @Prop()
+  passport: string
 
   @Prop({ required: true })
   password?: string;
@@ -18,6 +30,9 @@ export class User extends Document {
 
   @Prop({ required: true })
   location: string;
+
+  @Prop()
+  country: string;
 
   @Prop({ required: true })
   companyName: string;
