@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { ShippingsModule } from './shippings/shippings.module';
+import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ShippingsModule } from './shippings/shippings.module';
     AuthModule,
     VehiclesModule,
     ShippingsModule,
+    ExchangeRateModule
   ],
   controllers: [],
   providers: [],

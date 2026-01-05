@@ -22,18 +22,42 @@ export class AuthService {
     const user = await this.usersService.findByEmail(loginDto.email);
     if (user && user.password && (await bcrypt.compare(loginDto.password, user.password))) {
       this.logger.log(`Login successful for email: ${loginDto.email}`);
-      const payload = { 
-        email: user.email, 
-        sub: user._id, 
-        roles: user.roles,
-        tokenVersion: user.tokenVersion 
-      };
-      return {
-        access_token: this.jwtService.sign(payload),
-      };
+      return this.generateTokens(user);
     }
     this.logger.warn(`Login failed for email: ${loginDto.email}`);
     throw new UnauthorizedException('Invalid credentials');
+  }
+
+  private async generateTokens(user: any) {
+    const payload = {
+      email: user.email,
+      sub: user._id,
+      roles: user.roles,
+      tokenVersion: user.tokenVersion
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      refresh_token: this.jwtService.sign(payload, {
+        expiresIn: '7d', // Refresh token valid for 7 days
+      }),
+    };
+  }
+
+  async refreshToken(token: string) {
+    try {
+      const payload = this.jwtService.verify(token);
+      const user = await this.usersService.findById(payload.sub);
+
+      if (!user || user.tokenVersion !== payload.tokenVersion) {
+        throw new UnauthorizedException('Token revoked');
+      }
+
+      return this.generateTokens(user);
+    } catch (e) {
+      this.logger.warn(`Refresh token failed: ${e.message}`);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   async registerClient(registerDto: RegisterDto) {

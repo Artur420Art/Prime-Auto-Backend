@@ -47,4 +47,10 @@ export class AuthController {
   async changeEmail(@Body() changeEmailDto: ChangeEmailDto) {
     return this.authService.changeEmail(changeEmailDto);
   }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh access token' })
+  async refresh(@Body('refresh_token') refreshToken: string) {
+    return this.authService.refreshToken(refreshToken);
+  }
 }

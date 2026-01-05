@@ -24,7 +24,7 @@ export class VehiclesService {
 
   async findAll(): Promise<Vehicle[]> {
     this.logger.log('Fetching all vehicles');
-    return this.vehicleModel.find().populate('client').exec();
+    return this.vehicleModel.find().exec();
   }
 
   async findByClient(clientId: string): Promise<Vehicle[]> {
