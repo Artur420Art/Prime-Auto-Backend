@@ -24,7 +24,7 @@ export class CreateVehicleDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  year: number;
+  year: string;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -53,7 +53,7 @@ export class CreateVehicleDto {
 
   @ApiProperty()
   @IsString()
-  autoPrice: number;
+  autoPrice: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
