@@ -8,19 +8,19 @@ export class User extends Document {
   customerId: string;
 
   @Prop()
-  firstName: string
+  firstName: string;
 
   @Prop()
-  lastName: string
+  lastName: string;
 
-  @Prop({required: true})
-  userName: string
+  @Prop({ required: true })
+  userName: string;
 
   @Prop({ required: true, unique: true })
   email: string;
 
   @Prop()
-  passport: string
+  passport: string;
 
   @Prop({ required: true })
   password?: string;

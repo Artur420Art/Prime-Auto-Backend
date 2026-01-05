@@ -23,7 +23,7 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
     AuthModule,
     VehiclesModule,
     ShippingsModule,
-    ExchangeRateModule
+    ExchangeRateModule,
   ],
   controllers: [],
   providers: [],

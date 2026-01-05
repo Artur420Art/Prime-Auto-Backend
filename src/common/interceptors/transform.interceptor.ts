@@ -1,4 +1,4 @@
-  import {
+import {
   Injectable,
   NestInterceptor,
   ExecutionContext,
@@ -13,9 +13,10 @@ export interface Response<T> {
 }
 
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, Response<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  Response<T>
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -53,7 +54,11 @@ export class TransformInterceptor<T>
       for (const key in obj) {
         if (key === '_id') {
           transformed['id'] = obj[key].toString();
-        } else if (key === '__v' || key === 'createdAt' || key === 'updatedAt') {
+        } else if (
+          key === '__v' ||
+          key === 'createdAt' ||
+          key === 'updatedAt'
+        ) {
           continue;
         } else {
           transformed[key] = this.transformData(obj[key]);

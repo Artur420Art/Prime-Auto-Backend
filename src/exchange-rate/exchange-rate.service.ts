@@ -12,9 +12,7 @@ export class ExchangeRateService {
   async getAmdUsdRate(): Promise<any> {
     this.logger.log('Fetching AMD/USD exchange rate from external API');
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.get(this.apiUrl)
-      );
+      const { data } = await firstValueFrom(this.httpService.get(this.apiUrl));
       this.logger.log('Successfully fetched exchange rate');
       return data;
     } catch (error) {

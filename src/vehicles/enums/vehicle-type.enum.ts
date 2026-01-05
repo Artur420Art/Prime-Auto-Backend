@@ -14,9 +14,9 @@ export enum VehicleType {
 }
 
 export enum VehicleModel {
-  BMW = 'bmw'
+  BMW = 'bmw',
 }
 
 export enum Auction {
- COPART = 'copart'
+  COPART = 'copart',
 }

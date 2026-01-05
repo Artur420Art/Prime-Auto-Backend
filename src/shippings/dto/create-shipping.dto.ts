@@ -15,5 +15,5 @@ export class CreateShippingDto {
 export class IncreaseAllAmmountDto {
   @ApiProperty()
   @IsNumber()
-  amount: number
+  amount: number;
 }

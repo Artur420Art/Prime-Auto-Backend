@@ -10,16 +10,26 @@ import {
   Query,
   Req,
   UseInterceptors,
-  UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiTags, ApiOperation, ApiResponse, ApiOkResponse, ApiCreatedResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiConsumes,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Vehicle } from './schemas/vehicle.schema';
-
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -42,7 +52,8 @@ export class VehiclesController {
         ],
         fileIsRequired: false,
       }),
-    ) file?: Express.Multer.File,
+    )
+    file?: Express.Multer.File,
   ) {
     if (file) {
       createVehicleDto.invoiceId = 'testIds';
@@ -80,11 +91,13 @@ export class VehiclesController {
         ],
         fileIsRequired: false,
       }),
-    ) file?: Express.Multer.File,
+    )
+    file?: Express.Multer.File,
   ) {
     if (file) {
       // In the future this will be an ID from a bucket/storage service
-      updateVehicleDto.invoiceId = file.path || (file as any).location || 'memory:' + file.originalname;
+      updateVehicleDto.invoiceId =
+        file.path || (file as any).location || 'memory:' + file.originalname;
     }
     return this.vehiclesService.update(id, updateVehicleDto);
   }

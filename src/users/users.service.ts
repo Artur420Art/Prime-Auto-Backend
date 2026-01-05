@@ -27,7 +27,10 @@ export class UsersService {
     return customerId;
   }
 
-  async create(registerDto: RegisterDto, roles: Role[] = [Role.CLIENT]): Promise<User> {
+  async create(
+    registerDto: RegisterDto,
+    roles: Role[] = [Role.CLIENT],
+  ): Promise<User> {
     this.logger.log(`Creating user with email: ${registerDto.email}`);
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const customerId = await this.generateUniqueCustomerId();
@@ -58,36 +61,45 @@ export class UsersService {
   async findAll(role?: Role): Promise<User[]> {
     this.logger.log(`Finding users${role ? ` with role: ${role}` : ''}`);
     const query = role ? { roles: role } : {};
-    return this.userModel.find(query, {
-      password: 0,
-      roles: 0,
-      createdAt: 0,
-      updatedAt: 0,
-      __v: 0,
-    }).exec();
+    return this.userModel
+      .find(query, {
+        password: 0,
+        roles: 0,
+        createdAt: 0,
+        updatedAt: 0,
+        __v: 0,
+      })
+      .exec();
   }
 
-  async updatePassword(email: string, newPasswordHash: string): Promise<User | null> {
+  async updatePassword(
+    email: string,
+    newPasswordHash: string,
+  ): Promise<User | null> {
     this.logger.log(`Updating password for user: ${email}`);
-    return this.userModel.findOneAndUpdate(
-      { email },
-      { 
-        password: newPasswordHash,
-        $inc: { tokenVersion: 1 }
-      },
-      { new: true }
-    ).exec();
+    return this.userModel
+      .findOneAndUpdate(
+        { email },
+        {
+          password: newPasswordHash,
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true },
+      )
+      .exec();
   }
 
   async updateEmail(oldEmail: string, newEmail: string): Promise<User | null> {
     this.logger.log(`Updating email for user: ${oldEmail} to ${newEmail}`);
-    return this.userModel.findOneAndUpdate(
-      { email: oldEmail },
-      { 
-        email: newEmail,
-        $inc: { tokenVersion: 1 }
-      },
-      { new: true }
-    ).exec();
+    return this.userModel
+      .findOneAndUpdate(
+        { email: oldEmail },
+        {
+          email: newEmail,
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true },
+      )
+      .exec();
   }
 }

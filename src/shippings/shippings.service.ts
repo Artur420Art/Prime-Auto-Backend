@@ -13,7 +13,10 @@ export class ShippingsService {
     @InjectModel(Shipping.name) private shippingModel: Model<Shipping>,
   ) {}
 
-  async create(createShippingDto: CreateShippingDto, userId: string): Promise<Shipping> {
+  async create(
+    createShippingDto: CreateShippingDto,
+    userId: string,
+  ): Promise<Shipping> {
     this.logger.log(`Creating shipping for user ${userId}`);
     const createdShipping = new this.shippingModel({
       ...createShippingDto,
@@ -22,33 +25,52 @@ export class ShippingsService {
     return createdShipping.save();
   }
 
-  async findAll(user: { userId: string; roles: string[] }): Promise<Shipping[]> {
-    this.logger.log(`Fetching shippings for user: ${user.userId}, roles: ${user.roles}`);
-    
+  async findAll(user: {
+    userId: string;
+    roles: string[];
+  }): Promise<Shipping[]> {
+    this.logger.log(
+      `Fetching shippings for user: ${user.userId}, roles: ${user.roles}`,
+    );
+
     const query: any = {};
-    
+
     if (!user.roles.includes('admin')) {
       query.user = user.userId;
     }
 
-    return this.shippingModel.find(query).populate('user', 'firstName lastName email customerId').exec();
+    return this.shippingModel
+      .find(query)
+      .populate('user', 'firstName lastName email customerId')
+      .exec();
   }
 
-  async findByCity(city: string, user: { userId: string; roles: string[] }): Promise<Shipping[]> {
-    this.logger.log(`Fetching shippings for city: ${city}, user: ${user.userId}, roles: ${user.roles}`);
-    
+  async findByCity(
+    city: string,
+    user: { userId: string; roles: string[] },
+  ): Promise<Shipping[]> {
+    this.logger.log(
+      `Fetching shippings for city: ${city}, user: ${user.userId}, roles: ${user.roles}`,
+    );
+
     const query: any = { city: new RegExp(`^${city}$`, 'i') };
-    
+
     if (!user.roles.includes('admin')) {
       query.user = user.userId;
     }
 
-    return this.shippingModel.find(query).populate('user', 'firstName lastName email customerId').exec();
+    return this.shippingModel
+      .find(query)
+      .populate('user', 'firstName lastName email customerId')
+      .exec();
   }
 
   async findOne(id: string): Promise<Shipping> {
     this.logger.log(`Fetching shipping with ID ${id}`);
-    const shipping = await this.shippingModel.findById(id).populate('user', 'email firstName lastName').exec();
+    const shipping = await this.shippingModel
+      .findById(id)
+      .populate('user', 'email firstName lastName')
+      .exec();
     if (!shipping) {
       this.logger.warn(`Shipping with ID ${id} not found`);
       throw new NotFoundException(`Shipping with ID "${id}" not found`);
@@ -56,7 +78,10 @@ export class ShippingsService {
     return shipping;
   }
 
-  async update(id: string, updateShippingDto: UpdateShippingDto): Promise<Shipping> {
+  async update(
+    id: string,
+    updateShippingDto: UpdateShippingDto,
+  ): Promise<Shipping> {
     this.logger.log(`Updating shipping with ID ${id}`);
     const updatedShipping = await this.shippingModel
       .findByIdAndUpdate(id, updateShippingDto, { new: true })
@@ -77,11 +102,16 @@ export class ShippingsService {
     }
   }
 
-  async increaseAllPrices(amount: number, user: { userId: string; roles: string[] }): Promise<void> {
-    this.logger.log(`Increasing shippings prices by ${amount} for user: ${user.userId}, roles: ${user.roles}`);
-    
+  async increaseAllPrices(
+    amount: number,
+    user: { userId: string; roles: string[] },
+  ): Promise<void> {
+    this.logger.log(
+      `Increasing shippings prices by ${amount} for user: ${user.userId}, roles: ${user.roles}`,
+    );
+
     const query: any = {};
-    
+
     if (!user.roles.includes('admin')) {
       query.user = user.userId;
     }

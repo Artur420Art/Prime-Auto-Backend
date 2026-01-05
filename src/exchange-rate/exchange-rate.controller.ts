@@ -9,7 +9,10 @@ export class ExchangeRateController {
 
   @Get('amd-usd')
   @ApiOperation({ summary: 'Get the latest AMD/USD exchange rate' })
-  @ApiResponse({ status: 200, description: 'Successfully retrieved the exchange rate' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved the exchange rate',
+  })
   async getAmdUsdRate() {
     return this.exchangeRateService.getAmdUsdRate();
   }

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
 import { Vehicle } from './schemas/vehicle.schema';
@@ -16,24 +21,32 @@ export class VehiclesService {
     private readonly usersService: UsersService,
   ) {}
 
-  private async resolveUserObjectId(idOrCustomerId: string): Promise<Types.ObjectId> {
+  private async resolveUserObjectId(
+    idOrCustomerId: string,
+  ): Promise<Types.ObjectId> {
     if (isValidObjectId(idOrCustomerId)) {
       return new Types.ObjectId(idOrCustomerId);
     }
 
     const user = await this.usersService.findByCustomerId(idOrCustomerId);
     if (!user) {
-      this.logger.warn(`User with ID or Customer ID "${idOrCustomerId}" not found`);
-      throw new NotFoundException(`User with ID or Customer ID "${idOrCustomerId}" not found`);
+      this.logger.warn(
+        `User with ID or Customer ID "${idOrCustomerId}" not found`,
+      );
+      throw new NotFoundException(
+        `User with ID or Customer ID "${idOrCustomerId}" not found`,
+      );
     }
     return user._id as Types.ObjectId;
   }
 
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
     this.logger.log(`Creating vehicle: ${createVehicleDto.vin}`);
-    
-    const clientObjectId = await this.resolveUserObjectId(createVehicleDto.client);
-    
+
+    const clientObjectId = await this.resolveUserObjectId(
+      createVehicleDto.client,
+    );
+
     const createdVehicle = new this.vehicleModel({
       ...createVehicleDto,
       client: clientObjectId,
@@ -42,10 +55,12 @@ export class VehiclesService {
   }
 
   async findAll(user: { userId: string; roles: string[] }): Promise<Vehicle[]> {
-    this.logger.log(`Fetching vehicles for user: ${user.userId}, roles: ${user.roles}`);
-    
+    this.logger.log(
+      `Fetching vehicles for user: ${user.userId}, roles: ${user.roles}`,
+    );
+
     const query: any = {};
-    
+
     if (!user.roles.includes('admin')) {
       query.client = new Types.ObjectId(user.userId);
     }
@@ -69,12 +84,17 @@ export class VehiclesService {
     return vehicle;
   }
 
-  async update(id: string, updateVehicleDto: UpdateVehicleDto): Promise<Vehicle> {
+  async update(
+    id: string,
+    updateVehicleDto: UpdateVehicleDto,
+  ): Promise<Vehicle> {
     this.logger.log(`Updating vehicle with ID: ${id}`);
-    
+
     const updateData: any = { ...updateVehicleDto };
     if (updateVehicleDto.client) {
-      updateData.client = await this.resolveUserObjectId(updateVehicleDto.client);
+      updateData.client = await this.resolveUserObjectId(
+        updateVehicleDto.client,
+      );
     }
 
     const updatedVehicle = await this.vehicleModel
@@ -95,5 +115,4 @@ export class VehiclesService {
       throw new NotFoundException(`Vehicle with ID "${id}" not found`);
     }
   }
-
 }

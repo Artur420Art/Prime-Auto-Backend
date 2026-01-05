@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Request,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -22,7 +29,9 @@ export class AuthController {
   }
 
   @Post('register-admin-super')
-  @ApiOperation({ summary: 'Create super admin (public endpoint for initial setup)' })
+  @ApiOperation({
+    summary: 'Create super admin (public endpoint for initial setup)',
+  })
   async registerSuperAdmin(@Body() registerDto: RegisterDto) {
     return this.authService.registerAdmin(registerDto);
   }
@@ -37,7 +46,9 @@ export class AuthController {
   }
 
   @Post('forgot-password-change')
-  @ApiOperation({ summary: 'Change password (forgot password flow) and revoke tokens' })
+  @ApiOperation({
+    summary: 'Change password (forgot password flow) and revoke tokens',
+  })
   async changePassword(@Body() changePasswordDto: ChangePasswordDto) {
     return this.authService.changePassword(changePasswordDto);
   }
