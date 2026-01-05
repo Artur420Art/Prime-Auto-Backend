@@ -13,16 +13,37 @@ export class ShippingsService {
     @InjectModel(Shipping.name) private shippingModel: Model<Shipping>,
   ) {}
 
-  async create(createShippingDto: CreateShippingDto): Promise<Shipping> {
-    this.logger.log(`Creating shipping for user ${createShippingDto.user}`);
-    const createdShipping = new this.shippingModel(createShippingDto);
+  async create(createShippingDto: CreateShippingDto, userId: string): Promise<Shipping> {
+    this.logger.log(`Creating shipping for user ${userId}`);
+    const createdShipping = new this.shippingModel({
+      ...createShippingDto,
+      user: userId,
+    });
     return createdShipping.save();
   }
 
-  async findAll(userId?: string): Promise<Shipping[]> {
-    this.logger.log(`Fetching all shippings${userId ? ` for user ${userId}` : ''}`);
-    const filter = userId ? { user: userId } : {};
-    return this.shippingModel.find(filter).exec();
+  async findAll(user: { userId: string; roles: string[] }): Promise<Shipping[]> {
+    this.logger.log(`Fetching shippings for user: ${user.userId}, roles: ${user.roles}`);
+    
+    const query: any = {};
+    
+    if (!user.roles.includes('admin')) {
+      query.user = user.userId;
+    }
+
+    return this.shippingModel.find(query).populate('user', 'firstName lastName email customerId').exec();
+  }
+
+  async findByCity(city: string, user: { userId: string; roles: string[] }): Promise<Shipping[]> {
+    this.logger.log(`Fetching shippings for city: ${city}, user: ${user.userId}, roles: ${user.roles}`);
+    
+    const query: any = { city: new RegExp(`^${city}$`, 'i') };
+    
+    if (!user.roles.includes('admin')) {
+      query.user = user.userId;
+    }
+
+    return this.shippingModel.find(query).populate('user', 'firstName lastName email customerId').exec();
   }
 
   async findOne(id: string): Promise<Shipping> {
@@ -56,9 +77,15 @@ export class ShippingsService {
     }
   }
 
-  async increaseAllPrices(amount: number, userId?: string): Promise<void> {
-    this.logger.log(`Increasing all shipping prices by ${amount}${userId ? ` for user ${userId}` : ''}`);
-    const filter = userId ? { user: userId } : {};
-    await this.shippingModel.updateMany(filter, { $inc: { shipping: amount } }).exec();
+  async increaseAllPrices(amount: number, user: { userId: string; roles: string[] }): Promise<void> {
+    this.logger.log(`Increasing shippings prices by ${amount} for user: ${user.userId}, roles: ${user.roles}`);
+    
+    const query: any = {};
+    
+    if (!user.roles.includes('admin')) {
+      query.user = user.userId;
+    }
+
+    await this.shippingModel.updateMany(query, { $inc: { shipping: amount } }).exec();
   }
 }

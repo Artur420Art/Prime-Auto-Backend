@@ -64,7 +64,6 @@ export class UsersService {
       createdAt: 0,
       updatedAt: 0,
       __v: 0,
-      _id: 0,
     }).exec();
   }
 

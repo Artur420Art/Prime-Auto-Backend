@@ -60,8 +60,8 @@ export class CreateVehicleDto {
   @IsString()
   customerNotes?: string;
 
-  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @ApiProperty({ type: 'string', required: false })
   @IsOptional()
   @IsString()
-  invoice?: string;
+  invoiceId?: string;
 }

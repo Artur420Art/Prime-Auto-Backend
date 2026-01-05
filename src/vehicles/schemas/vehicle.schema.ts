@@ -52,7 +52,7 @@ export class Vehicle extends Document {
 
   @ApiProperty({ required: false })
   @Prop({ required: false })
-  invoice: string;
+  invoiceId: string;
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);

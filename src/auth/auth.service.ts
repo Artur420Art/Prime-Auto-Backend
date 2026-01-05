@@ -94,4 +94,16 @@ export class AuthService {
     this.logger.log(`Email changed successfully from ${changeEmailDto.oldEmail} to ${changeEmailDto.newEmail}`);
     return { message: 'Email changed successfully and tokens revoked' };
   }
+
+  async getMe(userId: string) {
+    this.logger.log(`Fetching user details for ID: ${userId}`);
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      this.logger.warn(`User not found for ID: ${userId}`);
+      throw new NotFoundException('User not found');
+    }
+    const userObj = user.toObject();
+    delete userObj.password;
+    return userObj;
+  }
 }

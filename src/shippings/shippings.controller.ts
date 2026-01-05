@@ -30,29 +30,21 @@ export class ShippingsController {
   @ApiOperation({ summary: 'Create a new shipping record' })
   @ApiCreatedResponse({ type: Shipping })
   create(@Body() createShippingDto: CreateShippingDto, @Request() req) {
-    if (!createShippingDto.user) {
-      createShippingDto.user = req.user.userId;
-    }
-    return this.shippingsService.create(createShippingDto);
+    return this.shippingsService.create(createShippingDto, req.user.userId);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all shipping records for the current user' })
+  @ApiOperation({ summary: 'Get all shipping records' })
   @ApiOkResponse({ type: [Shipping] })
   findAll(@Request() req) {
-    
-    if (req.user.roles.includes(Role.ADMIN)) {
-      return this.shippingsService.findAll();
-    }
-    return this.shippingsService.findAll(req.user.userId);
+    return this.shippingsService.findAll(req.user);
   }
 
-  @Get('all')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get all shipping records (Admin only)' })
+  @Get('city/:city')
+  @ApiOperation({ summary: 'Get shipping records by city' })
   @ApiOkResponse({ type: [Shipping] })
-  findAllAdmin() {
-    return this.shippingsService.findAll();
+  findByCity(@Param('city') city: string, @Request() req) {
+    return this.shippingsService.findByCity(city, req.user);
   }
 
   @Get(':id')
@@ -80,9 +72,6 @@ export class ShippingsController {
   @ApiOperation({ summary: 'Increase all shipping prices by a specified amount' })
   @ApiOkResponse({ description: 'All shipping prices increased successfully' })
   increasePrices(@Body('amount') amount: number, @Request() req) {
-    if (req.user.roles.includes(Role.ADMIN)) {
-      return this.shippingsService.increaseAllPrices(amount);
-    }
-    return this.shippingsService.increaseAllPrices(amount, req.user.userId);
+    return this.shippingsService.increaseAllPrices(amount, req.user);
   }
 }

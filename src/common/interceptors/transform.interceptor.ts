@@ -34,8 +34,17 @@ export class TransformInterceptor<T>
     }
 
     if (data !== null && typeof data === 'object') {
-      if (data instanceof Date || Buffer.isBuffer(data)) {
+      if (data instanceof Date) {
         return data;
+      }
+
+      if (Buffer.isBuffer(data)) {
+        return data.toString();
+      }
+
+      // Handle ObjectId
+      if (data.constructor && data.constructor.name === 'ObjectId') {
+        return data.toString();
       }
 
       const obj = data.toObject ? data.toObject() : { ...data };
@@ -44,7 +53,7 @@ export class TransformInterceptor<T>
       for (const key in obj) {
         if (key === '_id') {
           transformed['id'] = obj[key].toString();
-        } else if (key === '__v') {
+        } else if (key === '__v' || key === 'createdAt' || key === 'updatedAt') {
           continue;
         } else {
           transformed[key] = this.transformData(obj[key]);

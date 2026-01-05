@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types, isValidObjectId } from 'mongoose';
 import { Vehicle } from './schemas/vehicle.schema';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
@@ -16,35 +16,52 @@ export class VehiclesService {
     private readonly usersService: UsersService,
   ) {}
 
+  private async resolveUserObjectId(idOrCustomerId: string): Promise<Types.ObjectId> {
+    if (isValidObjectId(idOrCustomerId)) {
+      return new Types.ObjectId(idOrCustomerId);
+    }
+
+    const user = await this.usersService.findByCustomerId(idOrCustomerId);
+    if (!user) {
+      this.logger.warn(`User with ID or Customer ID "${idOrCustomerId}" not found`);
+      throw new NotFoundException(`User with ID or Customer ID "${idOrCustomerId}" not found`);
+    }
+    return user._id as Types.ObjectId;
+  }
+
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
     this.logger.log(`Creating vehicle: ${createVehicleDto.vin}`);
-    const createdVehicle = new this.vehicleModel(createVehicleDto);
+    
+    const clientObjectId = await this.resolveUserObjectId(createVehicleDto.client);
+    
+    const createdVehicle = new this.vehicleModel({
+      ...createVehicleDto,
+      client: clientObjectId,
+    });
     return createdVehicle.save();
   }
 
-  async findAll(): Promise<Vehicle[]> {
-    this.logger.log('Fetching all vehicles');
-    return this.vehicleModel.find().exec();
-  }
-
-  async findByClient(clientId: string): Promise<Vehicle[]> {
-    this.logger.log(`Fetching vehicles for client: ${clientId}`);
-    return this.vehicleModel.find({ client: clientId }).exec();
-  }
-
-  async findByCustomerId(customerId: string): Promise<Vehicle[]> {
-    this.logger.log(`Fetching vehicles for customer ID: ${customerId}`);
-    const user = await this.usersService.findByCustomerId(customerId);
-    if (!user) {
-      this.logger.warn(`User with Customer ID "${customerId}" not found`);
-      throw new NotFoundException(`User with Customer ID "${customerId}" not found`);
+  async findAll(user: { userId: string; roles: string[] }): Promise<Vehicle[]> {
+    this.logger.log(`Fetching vehicles for user: ${user.userId}, roles: ${user.roles}`);
+    
+    const query: any = {};
+    
+    if (!user.roles.includes('admin')) {
+      query.client = new Types.ObjectId(user.userId);
     }
-    return this.vehicleModel.find({ client: user._id }).exec();
+
+    return this.vehicleModel
+      .find(query)
+      .populate('client', 'firstName lastName email customerId')
+      .exec();
   }
 
   async findOne(id: string): Promise<Vehicle> {
     this.logger.log(`Fetching vehicle with ID: ${id}`);
-    const vehicle = await this.vehicleModel.findById(id).populate('client').exec();
+    const vehicle = await this.vehicleModel
+      .findById(id)
+      .populate('client', 'firstName lastName email customerId, companyName')
+      .exec();
     if (!vehicle) {
       this.logger.warn(`Vehicle with ID "${id}" not found`);
       throw new NotFoundException(`Vehicle with ID "${id}" not found`);
@@ -54,8 +71,14 @@ export class VehiclesService {
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto): Promise<Vehicle> {
     this.logger.log(`Updating vehicle with ID: ${id}`);
+    
+    const updateData: any = { ...updateVehicleDto };
+    if (updateVehicleDto.client) {
+      updateData.client = await this.resolveUserObjectId(updateVehicleDto.client);
+    }
+
     const updatedVehicle = await this.vehicleModel
-      .findByIdAndUpdate(id, updateVehicleDto, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
     if (!updatedVehicle) {
       this.logger.warn(`Vehicle with ID "${id}" not found for update`);
@@ -73,24 +96,4 @@ export class VehiclesService {
     }
   }
 
-  async getModelsByType(type: VehicleType): Promise<string[]> {
-    this.logger.log(`Fetching models for vehicle type: ${type}`);
-    
-    const models: Record<VehicleType, string[]> = {
-      [VehicleType.AUTO]: ['Toyota', 'Honda', 'Ford', 'Tesla', 'BMW', 'Nissan'],
-      [VehicleType.MOTORCYCLE]: ['Harley-Davidson', 'Honda', 'Yamaha'],
-      [VehicleType.LIMOUSINE]: ['Lincoln Town Car', 'Chrysler 300 Limousine'],
-      [VehicleType.BOAT]: ['Bayliner', 'Sea Ray', 'MasterCraft'],
-      [VehicleType.TRAILER]: ['Utility Trailer', 'Enclosed Trailer'],
-      [VehicleType.TRUCK]: ['Freightliner Cascadia', 'Peterbilt 389'],
-      [VehicleType.OVERSIZED_TRUCK]: ['Kenworth W900', 'Mack Anthem'],
-      [VehicleType.JETSKI]: ['Sea-Doo', 'Yamaha Waverunner'],
-      [VehicleType.ATV]: ['Polaris Sportsman', 'Honda Foreman'],
-      [VehicleType.MOPED]: ['Vespa', 'Honda Ruckus'],
-      [VehicleType.SCOOTER]: ['Xiaomi Mi Electric Scooter', 'Segway Ninebot'],
-      [VehicleType.OTHER]: [],
-    };
-
-    return models[type] || [];
-  }
 }

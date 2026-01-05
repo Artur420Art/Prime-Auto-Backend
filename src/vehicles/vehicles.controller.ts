@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
   UseInterceptors,
   UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator
 } from '@nestjs/common';
@@ -15,7 +16,6 @@ import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { VehicleType } from './enums/vehicle-type.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags, ApiOperation, ApiResponse, ApiOkResponse, ApiCreatedResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Vehicle } from './schemas/vehicle.schema';
@@ -45,7 +45,7 @@ export class VehiclesController {
     ) file?: Express.Multer.File,
   ) {
     if (file) {
-      createVehicleDto.invoice = file.path || (file as any).location || 'memory:' + file.originalname;
+      createVehicleDto.invoiceId = 'testIds';
     }
     return this.vehiclesService.create(createVehicleDto);
   }
@@ -53,29 +53,8 @@ export class VehiclesController {
   @Get()
   @ApiOperation({ summary: 'Get all vehicles' })
   @ApiOkResponse({ type: [Vehicle] })
-  findAll() {
-    return this.vehiclesService.findAll();
-  }
-
-  @Get('client/:clientId')
-  @ApiOperation({ summary: 'Get vehicles by client ID' })
-  @ApiOkResponse({ type: [Vehicle] })
-  findByClient(@Param('clientId') clientId: string) {
-    return this.vehiclesService.findByClient(clientId);
-  }
-
-  @Get('customer/:customerId')
-  @ApiOperation({ summary: 'Get vehicles by customer ID' })
-  @ApiOkResponse({ type: [Vehicle] })
-  findByCustomerId(@Param('customerId') customerId: string) {
-    return this.vehiclesService.findByCustomerId(customerId);
-  }
-
-  @Get('models')
-  @ApiOperation({ summary: 'Get available models by vehicle type' })
-  @ApiOkResponse({ type: [String] })
-  getModelsByType(@Query('type') type: VehicleType) {
-    return this.vehiclesService.getModelsByType(type);
+  findAll(@Req() req: any) {
+    return this.vehiclesService.findAll(req.user);
   }
 
   @Get(':id')
@@ -104,7 +83,8 @@ export class VehiclesController {
     ) file?: Express.Multer.File,
   ) {
     if (file) {
-      updateVehicleDto.invoice = file.path || (file as any).location || 'memory:' + file.originalname;
+      // In the future this will be an ID from a bucket/storage service
+      updateVehicleDto.invoiceId = file.path || (file as any).location || 'memory:' + file.originalname;
     }
     return this.vehiclesService.update(id, updateVehicleDto);
   }
