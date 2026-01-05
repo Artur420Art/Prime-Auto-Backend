@@ -46,4 +46,26 @@ export class UsersService {
   async findByCustomerId(customerId: string): Promise<User | null> {
     return this.userModel.findOne({ customerId }).exec();
   }
+
+  async updatePassword(email: string, newPasswordHash: string): Promise<User | null> {
+    return this.userModel.findOneAndUpdate(
+      { email },
+      { 
+        password: newPasswordHash,
+        $inc: { tokenVersion: 1 }
+      },
+      { new: true }
+    ).exec();
+  }
+
+  async updateEmail(oldEmail: string, newEmail: string): Promise<User | null> {
+    return this.userModel.findOneAndUpdate(
+      { email: oldEmail },
+      { 
+        email: newEmail,
+        $inc: { tokenVersion: 1 }
+      },
+      { new: true }
+    ).exec();
+  }
 }
