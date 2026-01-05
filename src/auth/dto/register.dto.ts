@@ -31,11 +31,6 @@ export class RegisterDto {
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  location: string;
-
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
