@@ -168,4 +168,12 @@ export class UsersService {
       throw error;
     }
   }
+
+  async remove(id: string): Promise<void> {
+    this.logger.log(`Deleting user with ID: ${id}`);
+    const result = await this.userModel.findByIdAndDelete(id).exec();
+    if (!result) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+  }
 }
