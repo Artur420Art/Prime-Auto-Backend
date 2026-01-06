@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  Logger,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
@@ -40,7 +45,17 @@ export class UsersService {
       roles,
       customerId,
     });
-    return createdUser.save();
+    try {
+      return await createdUser.save();
+    } catch (error) {
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyPattern || {})[0] || 'field';
+        const value = error.keyValue ? error.keyValue[field] : '';
+        this.logger.warn(`Duplicate key error for ${field}: ${value}`);
+        throw new ConflictException(`User with this ${field} already exists`);
+      }
+      throw error;
+    }
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -96,15 +111,25 @@ export class UsersService {
 
   async updateEmail(oldEmail: string, newEmail: string): Promise<User | null> {
     this.logger.log(`Updating email for user: ${oldEmail} to ${newEmail}`);
-    return this.userModel
-      .findOneAndUpdate(
-        { email: oldEmail },
-        {
-          email: newEmail,
-          $inc: { tokenVersion: 1 },
-        },
-        { new: true },
-      )
-      .exec();
+    try {
+      return await this.userModel
+        .findOneAndUpdate(
+          { email: oldEmail },
+          {
+            email: newEmail,
+            $inc: { tokenVersion: 1 },
+          },
+          { new: true },
+        )
+        .exec();
+    } catch (error) {
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyPattern || {})[0] || 'field';
+        const value = error.keyValue ? error.keyValue[field] : '';
+        this.logger.warn(`Duplicate key error for ${field}: ${value}`);
+        throw new ConflictException(`User with this ${field} already exists`);
+      }
+      throw error;
+    }
   }
 }

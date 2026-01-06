@@ -33,6 +33,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/multer": "^2.0.0",
     "@types/passport-jwt": "^4.0.1",
+    "@vercel/blob": "^2.0.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",

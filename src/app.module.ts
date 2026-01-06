@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { ShippingsModule } from './shippings/shippings.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
+import { BlobModule } from './common/blob/blob.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
     VehiclesModule,
     ShippingsModule,
     ExchangeRateModule,
+    BlobModule,
   ],
   controllers: [],
   providers: [],

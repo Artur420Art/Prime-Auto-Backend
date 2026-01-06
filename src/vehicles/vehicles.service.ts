@@ -11,6 +11,7 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleType } from './enums/vehicle-type.enum';
 import { UsersService } from '../users/users.service';
+import { BlobService } from '../common/blob/blob.service';
 
 @Injectable()
 export class VehiclesService {
@@ -19,6 +20,7 @@ export class VehiclesService {
   constructor(
     @InjectModel(Vehicle.name) private vehicleModel: Model<Vehicle>,
     private readonly usersService: UsersService,
+    private readonly blobService: BlobService,
   ) {}
 
   private async resolveUserObjectId(
@@ -40,16 +42,31 @@ export class VehiclesService {
     return user._id as Types.ObjectId;
   }
 
-  async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
+  async create(
+    createVehicleDto: CreateVehicleDto,
+    file?: Express.Multer.File,
+  ): Promise<Vehicle> {
     this.logger.log(`Creating vehicle: ${createVehicleDto.vin}`);
 
     const clientObjectId = await this.resolveUserObjectId(
       createVehicleDto.client,
     );
 
+    let invoiceId = createVehicleDto.invoiceId;
+    if (file) {
+      const blob = await this.blobService.upload(
+        `invoices/${Date.now()}-${file.originalname}`,
+        file.buffer,
+        file.mimetype,
+      );
+      JSON.stringify(`saved invoice Id ${JSON.stringify(blob.pathname)}`)
+      invoiceId = blob.url;
+    }
+
     const createdVehicle = new this.vehicleModel({
       ...createVehicleDto,
       client: clientObjectId,
+      invoiceId,
     });
     return createdVehicle.save();
   }
@@ -87,14 +104,35 @@ export class VehiclesService {
   async update(
     id: string,
     updateVehicleDto: UpdateVehicleDto,
+    file?: Express.Multer.File,
   ): Promise<Vehicle> {
     this.logger.log(`Updating vehicle with ID: ${id}`);
+
+    const existingVehicle = await this.findOne(id);
 
     const updateData: any = { ...updateVehicleDto };
     if (updateVehicleDto.client) {
       updateData.client = await this.resolveUserObjectId(
         updateVehicleDto.client,
       );
+    }
+
+    if (file) {
+      // Delete old invoice if it exists
+      if (existingVehicle.invoiceId && existingVehicle.invoiceId.startsWith('http')) {
+        try {
+          await this.blobService.delete(existingVehicle.invoiceId);
+        } catch (error) {
+          this.logger.warn(`Failed to delete old invoice: ${error.message}`);
+        }
+      }
+
+      const blob = await this.blobService.upload(
+        `invoices/${Date.now()}-${file.originalname}`,
+        file.buffer,
+        file.mimetype,
+      );
+      updateData.invoiceId = blob.url;
     }
 
     const updatedVehicle = await this.vehicleModel
@@ -109,6 +147,16 @@ export class VehiclesService {
 
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing vehicle with ID: ${id}`);
+    const vehicle = await this.findOne(id);
+
+    if (vehicle.invoiceId && vehicle.invoiceId.startsWith('http')) {
+      try {
+        await this.blobService.delete(vehicle.invoiceId);
+      } catch (error) {
+        this.logger.warn(`Failed to delete invoice: ${error.message}`);
+      }
+    }
+
     const result = await this.vehicleModel.findByIdAndDelete(id).exec();
     if (!result) {
       this.logger.warn(`Vehicle with ID "${id}" not found for removal`);

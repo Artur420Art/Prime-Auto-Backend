@@ -30,6 +30,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Vehicle } from './schemas/vehicle.schema';
+import { memoryStorage } from 'multer';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -39,26 +40,21 @@ export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('invoice'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Create a new vehicle' })
   @ApiCreatedResponse({ type: Vehicle })
+  @UseInterceptors(
+    FileInterceptor('invoice', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
   create(
     @Body() createVehicleDto: CreateVehicleDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }), // 5MB
-        ],
-        fileIsRequired: false,
-      }),
-    )
-    file?: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    if (file) {
-      createVehicleDto.invoiceId = 'testIds';
-    }
-    return this.vehiclesService.create(createVehicleDto);
+    return this.vehiclesService.create(createVehicleDto, file);
   }
 
   @Get()
@@ -94,12 +90,7 @@ export class VehiclesController {
     )
     file?: Express.Multer.File,
   ) {
-    if (file) {
-      // In the future this will be an ID from a bucket/storage service
-      updateVehicleDto.invoiceId =
-        file.path || (file as any).location || 'memory:' + file.originalname;
-    }
-    return this.vehiclesService.update(id, updateVehicleDto);
+    return this.vehiclesService.update(id, updateVehicleDto, file);
   }
 
   @Delete(':id')
