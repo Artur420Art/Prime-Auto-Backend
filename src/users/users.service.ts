@@ -3,12 +3,14 @@ import {
   OnModuleInit,
   Logger,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './enums/role.enum';
 
 @Injectable()
@@ -122,6 +124,40 @@ export class UsersService {
           { new: true },
         )
         .exec();
+    } catch (error) {
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyPattern || {})[0] || 'field';
+        const value = error.keyValue ? error.keyValue[field] : '';
+        this.logger.warn(`Duplicate key error for ${field}: ${value}`);
+        throw new ConflictException(`User with this ${field} already exists`);
+      }
+      throw error;
+    }
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    this.logger.log(`Updating user with ID: ${id}`);
+    const updateData: any = { ...updateUserDto };
+
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+      updateData.$inc = { tokenVersion: 1 };
+    }
+
+    if (updateData.email) {
+      updateData.$inc = { ...updateData.$inc, tokenVersion: 1 };
+    }
+
+    try {
+      const updatedUser = await this.userModel
+        .findByIdAndUpdate(id, updateData, { new: true })
+        .exec();
+
+      if (!updatedUser) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      return updatedUser;
     } catch (error) {
       if (error.code === 11000) {
         const field = Object.keys(error.keyPattern || {})[0] || 'field';
