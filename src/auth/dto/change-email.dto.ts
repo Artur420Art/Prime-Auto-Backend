@@ -12,3 +12,8 @@ export class ChangeEmailDto {
   @IsNotEmpty()
   newEmail: string;
 }
+
+export class RefreshToken {
+  @ApiProperty()
+  refresh_token: string;
+}
