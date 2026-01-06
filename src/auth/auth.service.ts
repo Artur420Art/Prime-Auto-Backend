@@ -23,17 +23,17 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    this.logger.log(`Login attempt for email: ${loginDto.email}`);
-    const user = await this.usersService.findByEmail(loginDto.email);
+    this.logger.log(`Login attempt for userName: ${loginDto.userName}`);
+    const user = await this.usersService.findByEmail(loginDto.userName);
     if (
       user &&
       user.password &&
       (await bcrypt.compare(loginDto.password, user.password))
     ) {
-      this.logger.log(`Login successful for email: ${loginDto.email}`);
+      this.logger.log(`Login successful for userName: ${loginDto.userName}`);
       return this.generateTokens(user);
     }
-    this.logger.warn(`Login failed for email: ${loginDto.email}`);
+    this.logger.warn(`Login failed for userName: ${loginDto.userName}`);
     throw new UnauthorizedException('Invalid credentials');
   }
 
