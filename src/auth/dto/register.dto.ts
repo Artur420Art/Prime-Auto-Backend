@@ -21,7 +21,7 @@ export class RegisterDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  userName: string;
+  username: string;
 
   @ApiProperty()
   @IsEmail()
@@ -29,7 +29,6 @@ export class RegisterDto {
 
   @ApiProperty()
   @IsString()
-  @MinLength(6)
   password: string;
 
   @ApiProperty()

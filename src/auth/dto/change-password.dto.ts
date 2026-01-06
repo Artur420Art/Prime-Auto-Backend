@@ -10,6 +10,5 @@ export class ChangePasswordDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @MinLength(6)
   newPassword: string;
 }

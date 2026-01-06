@@ -48,6 +48,11 @@ export class UsersService {
     return this.userModel.findOne({ email }).exec();
   }
 
+  async findByUsername(username: string): Promise<User | null> {
+    this.logger.log(`Finding user by username: ${username}`);
+    return this.userModel.findOne({ username }).exec();
+  }
+
   async findById(id: string): Promise<User | null> {
     this.logger.log(`Finding user by ID: ${id}`);
     return this.userModel.findById(id).exec();
