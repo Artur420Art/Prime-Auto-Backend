@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateNotificationDto {
@@ -14,6 +14,7 @@ export class CreateNotificationDto {
     description: 'Detailed description of the notification',
     example: 'The system will undergo maintenance on Saturday.',
   })
+  @IsOptional()
   @IsString()
   description?: string;
 
@@ -22,5 +23,6 @@ export class CreateNotificationDto {
     example: 'Scheduled maintenance for performance improvements',
   })
   @IsString()
+  @IsOptional()
   reason?: string;
 }
