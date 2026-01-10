@@ -26,18 +26,27 @@ export class AuthService {
     this.logger.log(`Login attempt for username: ${loginDto.username}`);
     const user = await this.usersService.findByUsername(loginDto.username);
     if (!user) {
-      this.logger.warn(`Login failed: Username not found (${loginDto.username})`);
+      this.logger.warn(
+        `Login failed: Username not found (${loginDto.username})`,
+      );
       throw new UnauthorizedException('Invalid username or password');
     }
 
     if (!user.password) {
-      this.logger.warn(`Login failed: User has no password set (${loginDto.username})`);
+      this.logger.warn(
+        `Login failed: User has no password set (${loginDto.username})`,
+      );
       throw new UnauthorizedException('Invalid username or password');
     }
 
-    const isPasswordMatching = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordMatching = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordMatching) {
-      this.logger.warn(`Login failed: Incorrect password for username (${loginDto.username})`);
+      this.logger.warn(
+        `Login failed: Incorrect password for username (${loginDto.username})`,
+      );
       throw new UnauthorizedException('Invalid username or password');
     }
 

@@ -6,11 +6,11 @@ export class Notification extends Document {
   @Prop({ required: true })
   message: string;
 
-  @Prop({ required: true })
-  description: string;
+  @Prop({ required: false })
+  description?: string;
 
-  @Prop({ required: true })
-  reason: string;
+  @Prop({ required: false })
+  reason?: string;
 
   @Prop({ required: true })
   createdBy: string; // Admin user ID who created the notification

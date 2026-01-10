@@ -2,7 +2,11 @@ import { IsNumber, IsString, Min, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ShippingCategory } from '../enums/category.enum';
 
-export class CreateCityPriceDto {
+export class UpdateDefaultPriceDto {
+  @ApiProperty({ description: 'User ID' })
+  @IsString()
+  userId: string;
+
   @ApiProperty({ description: 'City name' })
   @IsString()
   city: string;
@@ -14,8 +18,8 @@ export class CreateCityPriceDto {
   @IsEnum(ShippingCategory)
   category: ShippingCategory;
 
-  @ApiProperty({ description: 'Base price from PDF' })
+  @ApiProperty({ description: 'Default price set by admin' })
   @IsNumber()
   @Min(0)
-  base_price: number;
+  default_price: number;
 }

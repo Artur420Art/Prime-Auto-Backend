@@ -8,13 +8,13 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ShippingsService } from './shippings.service';
-import {
-  CreateShippingDto,
-  IncreaseAllAmmountDto,
-} from './dto/create-shipping.dto';
-import { UpdateShippingDto } from './dto/update-shipping.dto';
+import { CreateCityPriceDto } from './dto/create-shipping.dto';
+import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
+import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
+import { AdjustUserPricesDto } from './dto/update-price.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -25,8 +25,10 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
-import { Shipping } from './schemas/shipping.schema';
+import { UserShipping } from './schemas/shipping.schema';
+import { CityPrice } from './schemas/city-price.schema';
 
 @ApiTags('shippings')
 @ApiBearerAuth()
@@ -35,57 +37,163 @@ import { Shipping } from './schemas/shipping.schema';
 export class ShippingsController {
   constructor(private readonly shippingsService: ShippingsService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new shipping record' })
-  @ApiCreatedResponse({ type: Shipping })
-  create(@Body() createShippingDto: CreateShippingDto, @Request() req) {
-    return this.shippingsService.create(createShippingDto, req.user.userId);
+  @Post('city-prices')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Create base city price (Admin only)' })
+  @ApiCreatedResponse({ type: CityPrice })
+  createCityPrice(@Body() createCityPriceDto: CreateCityPriceDto) {
+    return this.shippingsService.createCityPrice(createCityPriceDto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all shipping records' })
-  @ApiOkResponse({ type: [Shipping] })
-  findAll(@Request() req) {
-    return this.shippingsService.findAll(req.user);
-  }
-
-  @Get('city/:city')
-  @ApiOperation({ summary: 'Get shipping records by city' })
-  @ApiOkResponse({ type: [Shipping] })
-  findByCity(@Param('city') city: string, @Request() req) {
-    return this.shippingsService.findByCity(city, req.user);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a shipping record by ID' })
-  @ApiOkResponse({ type: Shipping })
-  findOne(@Param('id') id: string) {
-    return this.shippingsService.findOne(id);
-  }
-
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a shipping record' })
-  @ApiOkResponse({ type: Shipping })
-  update(
-    @Param('id') id: string,
-    @Body() updateShippingDto: UpdateShippingDto,
+  @Get('city-prices')
+  @ApiOperation({ summary: 'Get all city prices' })
+  @ApiOkResponse({ type: [CityPrice] })
+  @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  getAllCityPrices(
+    @Query('category') category?: string,
+    @Query('city') city?: string,
   ) {
-    return this.shippingsService.update(id, updateShippingDto);
+    if (city || category) {
+      return this.shippingsService.getCityPriceByFilters({ city, category });
+    }
+    return this.shippingsService.getAllCityPrices();
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete a shipping record' })
-  @ApiOkResponse({ description: 'Shipping record deleted successfully' })
-  remove(@Param('id') id: string) {
-    return this.shippingsService.remove(id);
+  @Delete('city-prices/:id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Delete a city price (Admin only)' })
+  @ApiOkResponse({ description: 'City price deleted successfully' })
+  removeCityPrice(@Param('id') id: string) {
+    return this.shippingsService.removeCityPrice(id);
   }
 
-  @Post('increase-prices')
+  @Get('user-shippings')
+  @ApiOperation({ summary: 'Get all user shipping customizations' })
+  @ApiOkResponse({ type: [UserShipping] })
+  findAllUserShippings(@Request() req) {
+    return this.shippingsService.findAllUserShippings(req.user);
+  }
+
+  @Get('user-shippings/city/:city')
+  @ApiOperation({ summary: 'Get user shippings by city' })
+  @ApiOkResponse({ type: [UserShipping] })
+  findUserShippingsByCity(@Param('city') city: string, @Request() req) {
+    return this.shippingsService.findUserShippingsByCity(city, req.user);
+  }
+
+  @Get('user-shippings/city/:city/category/:category')
+  @ApiOperation({ summary: 'Get user shippings by city and category' })
+  @ApiOkResponse({ type: [UserShipping] })
+  findUserShippingsByCityAndCategory(
+    @Param('city') city: string,
+    @Param('category') category: string,
+    @Request() req,
+  ) {
+    return this.shippingsService.findUserShippingsByCityAndCategory(
+      city,
+      category,
+      req.user,
+    );
+  }
+
+  @Get('user-shippings/:id')
+  @ApiOperation({ summary: 'Get a user shipping by ID' })
+  @ApiOkResponse({ type: UserShipping })
+  findOneUserShipping(@Param('id') id: string) {
+    return this.shippingsService.findOneUserShipping(id);
+  }
+
+  @Delete('user-shippings/:id')
+  @ApiOperation({ summary: 'Delete a user shipping customization' })
+  @ApiOkResponse({ description: 'User shipping deleted successfully' })
+  removeUserShipping(@Param('id') id: string) {
+    return this.shippingsService.removeUserShipping(id);
+  }
+
+  @Patch('admin/default-price')
+  @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Increase all shipping prices by a specified amount',
+    summary:
+      'Admin updates default_price for a specific user, city, and category',
   })
-  @ApiOkResponse({ description: 'All shipping prices increased successfully' })
-  increasePrices(@Body() body: IncreaseAllAmmountDto, @Request() req) {
-    return this.shippingsService.increaseAllPrices(body.amount, req.user);
+  @ApiOkResponse({ type: UserShipping })
+  updateDefaultPrice(@Body() updateDto: UpdateDefaultPriceDto) {
+    return this.shippingsService.updateDefaultPrice(updateDto);
+  }
+
+  @Patch('admin/bulk-default-price')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary:
+      'Admin bulk updates default_price for all users (optionally filtered by city/category)',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        modifiedCount: { type: 'number' },
+      },
+    },
+  })
+  bulkUpdateDefaultPrice(
+    @Body() updateDto: BulkUpdateDefaultPriceDto,
+    @Query('userId') userId?: string,
+  ) {
+    return this.shippingsService.bulkUpdateDefaultPrice({ updateDto, userId });
+  }
+
+  @Patch('user/adjust-prices')
+  @ApiOperation({
+    summary:
+      'User adjusts ALL their city prices by a fixed amount (+ to increase, - to decrease)',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        modifiedCount: { type: 'number' },
+      },
+    },
+  })
+  adjustUserPrices(@Body() adjustDto: AdjustUserPricesDto, @Request() req) {
+    return this.shippingsService.adjustUserPrices({
+      adjustDto,
+      userId: req.user.userId,
+    });
+  }
+
+  @Get('effective-price/:city/:category')
+  @ApiOperation({
+    summary:
+      'Get effective price breakdown for a city and category (user-specific)',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        base_price: { type: 'number' },
+        default_price: { type: 'number' },
+        price_adjustment: { type: 'number' },
+        last_adjustment_amount: { type: 'number' },
+        last_adjustment_date: { type: 'string', format: 'date-time' },
+        current_price: { type: 'number' },
+        source: {
+          type: 'string',
+          enum: ['base', 'admin_default', 'user_adjusted'],
+        },
+      },
+    },
+  })
+  getEffectivePrice(
+    @Param('city') city: string,
+    @Param('category') category: string,
+    @Request() req,
+  ) {
+    return this.shippingsService.getEffectivePrice(
+      req.user.userId,
+      city,
+      category,
+    );
   }
 }

@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ShippingsService } from './shippings.service';
 import { ShippingsController } from './shippings.controller';
-import { Shipping, ShippingSchema } from './schemas/shipping.schema';
+import { UserShipping, UserShippingSchema } from './schemas/shipping.schema';
+import { CityPrice, CityPriceSchema } from './schemas/city-price.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Shipping.name, schema: ShippingSchema },
+      { name: UserShipping.name, schema: UserShippingSchema },
+      { name: CityPrice.name, schema: CityPriceSchema },
     ]),
   ],
   controllers: [ShippingsController],

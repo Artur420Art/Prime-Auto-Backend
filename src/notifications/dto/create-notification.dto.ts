@@ -15,7 +15,6 @@ export class CreateNotificationDto {
     example: 'The system will undergo maintenance on Saturday.',
   })
   @IsString()
-  @IsNotEmpty()
   description?: string;
 
   @ApiPropertyOptional({
