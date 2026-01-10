@@ -32,18 +32,22 @@ import { AvailableCarsQueryDto } from './dto/available-cars-query.dto';
 import { CategoryFilterDto } from './dto/category-filter.dto';
 import { AvailableCar } from './schemas/available-car.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/guards/roles.decorator';
+import { Role } from '../users/enums/role.enum';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @ApiTags('available-cars')
-@ApiBearerAuth()
 @Controller('available-cars')
-@UseGuards(JwtAuthGuard)
 export class AvailableCarsController {
   constructor(private readonly availableCarsService: AvailableCarsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Create a new available car' })
+  @ApiOperation({ summary: 'Create a new available car (Admin only)' })
   @ApiCreatedResponse({ type: AvailableCar })
   @UseInterceptors(
     FilesInterceptor('carPhotos', 10, {
@@ -112,8 +116,11 @@ export class AvailableCarsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Update an available car' })
+  @ApiOperation({ summary: 'Update an available car (Admin only)' })
   @ApiOkResponse({ type: AvailableCar })
   @UseInterceptors(
     FilesInterceptor('carPhotos', 10, {
@@ -145,14 +152,22 @@ export class AvailableCarsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete an available car' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete an available car (Admin only)' })
   @ApiOkResponse({ description: 'Available car deleted successfully' })
   remove(@Param('id') id: string) {
     return this.availableCarsService.remove(id);
   }
 
   @Delete(':id/photos')
-  @ApiOperation({ summary: 'Delete a photo from an available car' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a photo from an available car (Admin only)',
+  })
   @ApiOkResponse({ type: AvailableCar })
   deletePhoto(@Param('id') id: string, @Body('photoUrl') photoUrl: string) {
     return this.availableCarsService.deletePhoto({
