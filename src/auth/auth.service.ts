@@ -141,4 +141,11 @@ export class AuthService {
     delete userObj.password;
     return userObj;
   }
+
+  async logout(userId: string) {
+    this.logger.log(`Logout request for user ID: ${userId}`);
+    await this.usersService.incrementTokenVersion(userId);
+    this.logger.log(`User logged out successfully: ${userId}`);
+    return { message: 'Logged out successfully' };
+  }
 }

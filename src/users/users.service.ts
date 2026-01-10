@@ -176,4 +176,11 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
   }
+
+  async incrementTokenVersion(id: string): Promise<User | null> {
+    this.logger.log(`Incrementing token version for user ID: ${id}`);
+    return this.userModel
+      .findByIdAndUpdate(id, { $inc: { tokenVersion: 1 } }, { new: true })
+      .exec();
+  }
 }

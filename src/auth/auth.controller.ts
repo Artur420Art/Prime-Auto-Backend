@@ -72,4 +72,12 @@ export class AuthController {
   async getMe(@Request() req) {
     return this.authService.getMe(req.user.userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout user and invalidate all tokens' })
+  async logout(@Request() req) {
+    return this.authService.logout(req.user.userId);
+  }
 }
