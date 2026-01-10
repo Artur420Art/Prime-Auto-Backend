@@ -11,6 +11,7 @@ import { ShippingsModule } from './shippings/shippings.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { BlobModule } from './common/blob/blob.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AdminVehiclesModule } from './admin-vehicles/admin-vehicles.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     UsersModule,
     AuthModule,
     VehiclesModule,
+    AdminVehiclesModule,
     ShippingsModule,
     ExchangeRateModule,
     BlobModule,
