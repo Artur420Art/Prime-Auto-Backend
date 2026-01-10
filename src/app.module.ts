@@ -12,6 +12,8 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { BlobModule } from './common/blob/blob.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdminVehiclesModule } from './admin-vehicles/admin-vehicles.module';
+import { AvailableCarsModule } from './available-cars/available-cars.module';
+import { S3Module } from './common/s3/s3.module';
 
 @Module({
   imports: [
@@ -30,7 +32,9 @@ import { AdminVehiclesModule } from './admin-vehicles/admin-vehicles.module';
     ShippingsModule,
     ExchangeRateModule,
     BlobModule,
+    S3Module,
     NotificationsModule,
+    AvailableCarsModule,
   ],
   controllers: [],
   providers: [],

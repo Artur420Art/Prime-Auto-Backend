@@ -4,6 +4,7 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import express from 'express';
+import { ConfigModule } from '@nestjs/config';
 
 const server = express();
 let cachedServer;
@@ -12,7 +13,9 @@ async function createServer() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
     app.enableCors();
-
+    ConfigModule.forRoot({
+      isGlobal: true,
+    });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
