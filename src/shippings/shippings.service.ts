@@ -5,6 +5,7 @@ import { Model, FilterQuery, AnyBulkWriteOperation } from 'mongoose';
 import { UserShipping } from './schemas/shipping.schema';
 import { CityPrice } from './schemas/city-price.schema';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
+import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
 import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
@@ -175,6 +176,32 @@ export class ShippingsService {
       this.logger.warn(`User shipping with ID ${id} not found for removal`);
       throw new NotFoundException(`User shipping with ID "${id}" not found`);
     }
+  }
+
+  async updateCityPrice({
+    city,
+    category,
+    updateDto,
+  }: {
+    city: string;
+    category: string;
+    updateDto: UpdateCityPriceDto;
+  }): Promise<CityPrice> {
+    this.logger.log(
+      `Updating city price for city: ${city}, category: ${category}`,
+    );
+    const cityPrice = await this.cityPriceModel
+      .findOneAndUpdate({ city, category }, updateDto, { new: true })
+      .exec();
+    if (!cityPrice) {
+      this.logger.warn(
+        `City price not found for city: ${city}, category: ${category}`,
+      );
+      throw new NotFoundException(
+        `City price not found for city "${city}" and category "${category}"`,
+      );
+    }
+    return cityPrice;
   }
 
   async removeCityPrice(id: string): Promise<void> {

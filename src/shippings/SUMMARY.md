@@ -33,6 +33,7 @@ Your shipping service has been completely optimized and restructured to meet you
 ## 📁 Files Created/Modified
 
 ### Modified Files
+
 1. **`schemas/shipping.schema.ts`**
    - Added `last_adjustment_amount` field
    - Added `last_adjustment_date` field
@@ -50,6 +51,7 @@ Your shipping service has been completely optimized and restructured to meet you
    - Added new fields to Swagger docs
 
 ### New Files Created
+
 1. **`utils/price-calculator.util.ts`**
    - Centralized price calculation logic
    - Reusable helper functions
@@ -81,6 +83,7 @@ Your shipping service has been completely optimized and restructured to meet you
 ## 🚀 Key Improvements
 
 ### 1. Database Optimization
+
 ```typescript
 // Added indexes for fast queries
 { user: 1, city: 1, category: 1 } // Unique, primary lookup
@@ -90,6 +93,7 @@ Your shipping service has been completely optimized and restructured to meet you
 ```
 
 ### 2. Type Safety
+
 ```typescript
 // Before
 const query: any = {};
@@ -99,22 +103,24 @@ const query: FilterQuery<UserShipping> = {};
 ```
 
 ### 3. Code Reusability
+
 ```typescript
 // Centralized calculation
 const currentPrice = calculateCurrentPrice({
   defaultPrice: 500,
-  adjustment: 50
+  adjustment: 50,
 }); // Returns 550
 
 // Automatic source determination
 const source = determinePriceSource({
   basePrice: 500,
   defaultPrice: 450,
-  priceAdjustment: 50
+  priceAdjustment: 50,
 }); // Returns 'user_adjusted'
 ```
 
 ### 4. Adjustment History
+
 ```typescript
 // Now tracks changes
 {
@@ -127,6 +133,7 @@ const source = determinePriceSource({
 ## 📊 Data Model
 
 ### CityPrice (Base Prices)
+
 ```typescript
 {
   city: "Los Angeles",
@@ -136,6 +143,7 @@ const source = determinePriceSource({
 ```
 
 ### UserShipping (User Prices)
+
 ```typescript
 {
   user: ObjectId("..."),
@@ -151,16 +159,19 @@ const source = determinePriceSource({
 
 ## 🔐 Access Control
 
-| Action | Admin | Client |
-|--------|-------|--------|
-| Create base prices | ✅ | ❌ |
-| View prices | ✅ | ✅ (own only) |
-| Update default_price | ✅ | ❌ |
-| Adjust prices | ❌ | ✅ |
+| Action               | Admin | Client        |
+| -------------------- | ----- | ------------- |
+| Create base prices   | ✅    | ❌            |
+| Update base prices   | ✅    | ❌            |
+| Delete base prices   | ✅    | ❌            |
+| View prices          | ✅    | ✅ (own only) |
+| Update default_price | ✅    | ❌            |
+| Adjust prices        | ❌    | ✅            |
 
 ## 🎨 Usage Examples
 
 ### Admin: Create Base Price
+
 ```bash
 POST /shippings/city-prices
 {
@@ -171,6 +182,7 @@ POST /shippings/city-prices
 ```
 
 ### Admin: Set Custom Default for User
+
 ```bash
 PATCH /shippings/admin/default-price
 {
@@ -182,6 +194,7 @@ PATCH /shippings/admin/default-price
 ```
 
 ### Client: Adjust All Prices
+
 ```bash
 PATCH /shippings/user/adjust-prices
 {
@@ -190,6 +203,7 @@ PATCH /shippings/user/adjust-prices
 ```
 
 ### Get Price Breakdown
+
 ```bash
 GET /shippings/effective-price/Los Angeles/copart
 
@@ -207,16 +221,17 @@ Response:
 
 ## 📈 Performance Gains
 
-| Operation | Before | After | Improvement |
-|-----------|--------|-------|-------------|
-| User lookup | O(n) | O(log n) | ~10x faster |
-| City filter | O(n) | O(log n) | ~10x faster |
-| Bulk updates | Multiple queries | Single bulkWrite | ~5x faster |
-| Type safety | Runtime errors | Compile-time | 100% safer |
+| Operation    | Before           | After            | Improvement |
+| ------------ | ---------------- | ---------------- | ----------- |
+| User lookup  | O(n)             | O(log n)         | ~10x faster |
+| City filter  | O(n)             | O(log n)         | ~10x faster |
+| Bulk updates | Multiple queries | Single bulkWrite | ~5x faster  |
+| Type safety  | Runtime errors   | Compile-time     | 100% safer  |
 
 ## 🔄 Migration Path
 
 ### If You Have Existing Data
+
 ```bash
 # 1. Backup database
 mongodump --db your_db --collection user_shipping
@@ -234,6 +249,7 @@ npx ts-node src/shippings/scripts/migrate-to-current-price.ts
 ```
 
 ### If Starting Fresh
+
 - No migration needed
 - Just deploy and use
 
@@ -250,6 +266,7 @@ All documentation is in the `src/shippings/` folder:
 ## ✨ What You Can Do Now
 
 ### As Admin
+
 - ✅ Create base prices for cities/categories
 - ✅ View all users' shipping prices
 - ✅ Set custom default prices for specific users
@@ -257,6 +274,7 @@ All documentation is in the `src/shippings/` folder:
 - ✅ Filter by city, category, or user
 
 ### As Client
+
 - ✅ View your shipping prices
 - ✅ Adjust all your prices by a fixed amount
 - ✅ See price breakdown with history
@@ -329,6 +347,7 @@ User Flow:
 ## 📞 Support
 
 If you need help:
+
 1. Check the relevant .md file in `src/shippings/`
 2. Review the code comments
 3. Check the migration script if data issues occur

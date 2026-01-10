@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ShippingsService } from './shippings.service';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
+import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
 import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
@@ -58,6 +59,24 @@ export class ShippingsController {
       return this.shippingsService.getCityPriceByFilters({ city, category });
     }
     return this.shippingsService.getAllCityPrices();
+  }
+
+  @Patch('city-prices/:city/:category')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Update a city price by city and category (Admin only)',
+  })
+  @ApiOkResponse({ type: CityPrice })
+  updateCityPrice(
+    @Param('city') city: string,
+    @Param('category') category: string,
+    @Body() updateCityPriceDto: UpdateCityPriceDto,
+  ) {
+    return this.shippingsService.updateCityPrice({
+      city,
+      category,
+      updateDto: updateCityPriceDto,
+    });
   }
 
   @Delete('city-prices/:id')
