@@ -12,6 +12,8 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './enums/role.enum';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -92,6 +94,61 @@ export class UsersService {
         __v: 0,
       })
       .exec();
+  }
+
+  async findAllPaginated({
+    paginationQuery,
+    role,
+  }: {
+    paginationQuery: PaginationQueryDto;
+    role?: Role;
+  }): Promise<PaginatedResponseDto<User>> {
+    const { page = 1, limit = 10, search } = paginationQuery;
+    this.logger.log(
+      `Finding users with pagination - page: ${page}, limit: ${limit}, role: ${role || 'all'}`,
+    );
+
+    const query: any = role ? { roles: role } : {};
+
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { customerId: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.userModel
+        .find(query, {
+          password: 0,
+          tokenVersion: 0,
+          __v: 0,
+        })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
+      this.userModel.countDocuments(query).exec(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async updatePassword(

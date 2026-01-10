@@ -12,6 +12,8 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleType } from './enums/vehicle-type.enum';
 import { UsersService } from '../users/users.service';
 import { BlobService } from '../common/blob/blob.service';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @Injectable()
 export class VehiclesService {
@@ -86,6 +88,62 @@ export class VehiclesService {
       .find(query)
       .populate('client', 'firstName lastName email customerId')
       .exec();
+  }
+
+  async findAllPaginated({
+    user,
+    paginationQuery,
+  }: {
+    user: { userId: string; roles: string[] };
+    paginationQuery: PaginationQueryDto;
+  }): Promise<PaginatedResponseDto<Vehicle>> {
+    const { page = 1, limit = 10, search } = paginationQuery;
+    this.logger.log(
+      `Fetching vehicles with pagination - page: ${page}, limit: ${limit}, user: ${user.userId}`,
+    );
+
+    const query: any = {};
+
+    if (!user.roles.includes('admin')) {
+      query.client = new Types.ObjectId(user.userId);
+    }
+
+    if (search) {
+      query.$or = [
+        { vin: { $regex: search, $options: 'i' } },
+        { vehicleModel: { $regex: search, $options: 'i' } },
+        { lot: { $regex: search, $options: 'i' } },
+        { auction: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.vehicleModel
+        .find(query)
+        .populate('client', 'firstName lastName email customerId companyName')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
+      this.vehicleModel.countDocuments(query).exec(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async findOne(id: string): Promise<Vehicle> {

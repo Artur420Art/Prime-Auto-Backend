@@ -24,13 +24,14 @@ import {
   ApiConsumes,
   ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiOkResponse,
   ApiCreatedResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Vehicle } from './schemas/vehicle.schema';
 import { memoryStorage } from 'multer';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -62,6 +63,19 @@ export class VehiclesController {
   @ApiOkResponse({ type: [Vehicle] })
   findAll(@Req() req: any) {
     return this.vehiclesService.findAll(req.user);
+  }
+
+  @Get('paginated')
+  @ApiOperation({ summary: 'Get paginated vehicles' })
+  @ApiOkResponse({ type: PaginatedResponseDto<Vehicle> })
+  findAllPaginated(
+    @Req() req: any,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.vehiclesService.findAllPaginated({
+      user: req.user,
+      paginationQuery,
+    });
   }
 
   @Get(':id')
