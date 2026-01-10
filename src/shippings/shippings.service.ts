@@ -13,6 +13,8 @@ import {
   calculateCurrentPrice,
   determinePriceSource,
 } from './utils/price-calculator.util';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @Injectable()
 export class ShippingsService {
@@ -42,6 +44,50 @@ export class ShippingsService {
   async getAllCityPrices(): Promise<CityPrice[]> {
     this.logger.log('Fetching all city prices');
     return this.cityPriceModel.find().exec();
+  }
+
+  async getAllCityPricesPaginated(
+    paginationQuery: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CityPrice>> {
+    const { page = 1, limit = 10, search } = paginationQuery;
+    this.logger.log(
+      `Fetching city prices with pagination - page: ${page}, limit: ${limit}`,
+    );
+
+    const query: FilterQuery<CityPrice> = {};
+
+    if (search) {
+      query.$or = [
+        { city: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.cityPriceModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .sort({ city: 1 })
+        .exec(),
+      this.cityPriceModel.countDocuments(query).exec(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async getCityPriceByFilters({
@@ -79,6 +125,60 @@ export class ShippingsService {
       .find(query)
       .populate('user', 'firstName lastName email customerId')
       .exec();
+  }
+
+  async findAllUserShippingsPaginated({
+    user,
+    paginationQuery,
+  }: {
+    user: { userId: string; roles: string[] };
+    paginationQuery: PaginationQueryDto;
+  }): Promise<PaginatedResponseDto<UserShipping>> {
+    const { page = 1, limit = 10, search } = paginationQuery;
+    this.logger.log(
+      `Fetching user shippings with pagination - page: ${page}, limit: ${limit}, user: ${user.userId}`,
+    );
+
+    const query: FilterQuery<UserShipping> = {};
+
+    if (!user.roles.includes('admin')) {
+      query.user = user.userId;
+      await this.ensureUserShippingsExist(user.userId);
+    }
+
+    if (search) {
+      query.$or = [
+        { city: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.userShippingModel
+        .find(query)
+        .populate('user', 'firstName lastName email customerId')
+        .skip(skip)
+        .limit(limit)
+        .sort({ city: 1 })
+        .exec(),
+      this.userShippingModel.countDocuments(query).exec(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   private async ensureUserShippingsExist(userId: string): Promise<void> {

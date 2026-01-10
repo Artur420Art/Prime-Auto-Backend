@@ -30,6 +30,8 @@ import {
 } from '@nestjs/swagger';
 import { UserShipping } from './schemas/shipping.schema';
 import { CityPrice } from './schemas/city-price.schema';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @ApiTags('shippings')
 @ApiBearerAuth()
@@ -38,7 +40,7 @@ import { CityPrice } from './schemas/city-price.schema';
 export class ShippingsController {
   constructor(private readonly shippingsService: ShippingsService) {}
 
-  @Post('city-prices')
+  @Post('')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Create base city price (Admin only)' })
   @ApiCreatedResponse({ type: CityPrice })
@@ -46,7 +48,7 @@ export class ShippingsController {
     return this.shippingsService.createCityPrice(createCityPriceDto);
   }
 
-  @Get('city-prices')
+  @Get('')
   @ApiOperation({ summary: 'Get all city prices' })
   @ApiOkResponse({ type: [CityPrice] })
   @ApiQuery({ name: 'city', required: false, type: String })
@@ -61,7 +63,14 @@ export class ShippingsController {
     return this.shippingsService.getAllCityPrices();
   }
 
-  @Patch('city-prices/:city/:category')
+  @Get('paginated')
+  @ApiOperation({ summary: 'Get paginated city prices' })
+  @ApiOkResponse({ type: PaginatedResponseDto<CityPrice> })
+  getAllCityPricesPaginated(@Query() paginationQuery: PaginationQueryDto) {
+    return this.shippingsService.getAllCityPricesPaginated(paginationQuery);
+  }
+
+  @Patch('/:city/:category')
   @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Update a city price by city and category (Admin only)',
@@ -79,7 +88,7 @@ export class ShippingsController {
     });
   }
 
-  @Delete('city-prices/:id')
+  @Delete('/:id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Delete a city price (Admin only)' })
   @ApiOkResponse({ description: 'City price deleted successfully' })
@@ -92,6 +101,19 @@ export class ShippingsController {
   @ApiOkResponse({ type: [UserShipping] })
   findAllUserShippings(@Request() req) {
     return this.shippingsService.findAllUserShippings(req.user);
+  }
+
+  @Get('user-shippings/paginated')
+  @ApiOperation({ summary: 'Get paginated user shipping customizations' })
+  @ApiOkResponse({ type: PaginatedResponseDto<UserShipping> })
+  findAllUserShippingsPaginated(
+    @Request() req,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.shippingsService.findAllUserShippingsPaginated({
+      user: req.user,
+      paginationQuery,
+    });
   }
 
   @Get('user-shippings/city/:city')
