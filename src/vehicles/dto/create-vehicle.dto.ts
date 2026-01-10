@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsDateString,
   IsNotEmpty,
+  IsBoolean,
 } from 'class-validator';
 import { VehicleModel, VehicleType, Auction } from '../enums/vehicle-type.enum';
 import { ApiProperty } from '@nestjs/swagger';
@@ -74,4 +75,19 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsString()
   invoiceId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  paid?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  shippingPaid?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  insurance?: boolean;
 }

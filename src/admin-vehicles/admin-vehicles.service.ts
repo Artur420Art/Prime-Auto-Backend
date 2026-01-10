@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model } from 'mongoose';
 
@@ -33,7 +37,9 @@ export class AdminVehiclesService {
     return created.save();
   };
 
-  findAll = async (query: FindAdminVehiclesQueryDto): Promise<AdminVehicle[]> => {
+  findAll = async (
+    query: FindAdminVehiclesQueryDto,
+  ): Promise<AdminVehicle[]> => {
     const filter = this.buildFindFilter(query);
     return this.adminVehicleModel.find(filter).sort({ createdAt: -1 }).exec();
   };
@@ -51,7 +57,10 @@ export class AdminVehiclesService {
     return doc;
   };
 
-  update = async (id: string, dto: UpdateAdminVehicleDto): Promise<AdminVehicle> => {
+  update = async (
+    id: string,
+    dto: UpdateAdminVehicleDto,
+  ): Promise<AdminVehicle> => {
     if (!isValidObjectId(id)) {
       throw new BadRequestException('Invalid id');
     }
@@ -78,4 +87,3 @@ export class AdminVehiclesService {
     }
   };
 }
-

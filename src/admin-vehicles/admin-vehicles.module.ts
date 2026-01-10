@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { AdminVehiclesController } from './admin-vehicles.controller';
 import { AdminVehiclesService } from './admin-vehicles.service';
-import { AdminVehicle, AdminVehicleSchema } from './schemas/admin-vehicle.schema';
+import {
+  AdminVehicle,
+  AdminVehicleSchema,
+} from './schemas/admin-vehicle.schema';
 
 @Module({
   imports: [
@@ -16,4 +19,3 @@ import { AdminVehicle, AdminVehicleSchema } from './schemas/admin-vehicle.schema
   exports: [AdminVehiclesService],
 })
 export class AdminVehiclesModule {}
-
