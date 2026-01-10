@@ -103,11 +103,4 @@ export class CreateAvailableCarDto {
   @IsOptional()
   @IsEnum(Transmission)
   transmission?: Transmission;
-
-  @ApiPropertyOptional({
-    type: 'array',
-    items: { type: 'string', format: 'binary' },
-    description: 'Car photos',
-  })
-  carPhotos?: any;
 }
