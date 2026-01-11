@@ -212,7 +212,10 @@ export class VehiclesService {
       this.logger.log('Reordering photos');
 
       // Validate that vehicle has photos
-      if (!existingVehicle.vehiclePhotos || existingVehicle.vehiclePhotos.length === 0) {
+      if (
+        !existingVehicle.vehiclePhotos ||
+        existingVehicle.vehiclePhotos.length === 0
+      ) {
         throw new BadRequestException('Vehicle has no photos to reorder');
       }
 
