@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AdminVehiclesModule } from './admin-vehicles/admin-vehicles.module';
 import { AvailableCarsModule } from './available-cars/available-cars.module';
 import { S3Module } from './common/s3/s3.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { S3Module } from './common/s3/s3.module';
     S3Module,
     NotificationsModule,
     AvailableCarsModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],
