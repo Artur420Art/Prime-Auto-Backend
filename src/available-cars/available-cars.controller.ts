@@ -52,7 +52,7 @@ export class AvailableCarsController {
   @UseInterceptors(
     FilesInterceptor('carPhotos', 10, {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB per file
+      limits: { fileSize: 12 * 1024 * 1024 }, // 12MB per file
     }),
   )
   create(
@@ -60,7 +60,7 @@ export class AvailableCarsController {
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new MaxFileSizeValidator({ maxSize: 12 * 1024 * 1024 }),
           new FileTypeValidator({
             fileType: /(jpg|jpeg|png|webp|gif)$/,
           }),
@@ -125,7 +125,7 @@ export class AvailableCarsController {
   @UseInterceptors(
     FilesInterceptor('carPhotos', 25, {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: 12 * 1024 * 1024 },
     }),
   )
   update(
@@ -134,7 +134,7 @@ export class AvailableCarsController {
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new MaxFileSizeValidator({ maxSize: 12 * 1024 * 1024 }),
           new FileTypeValidator({
             fileType: /(jpg|jpeg|png|webp|gif)$/,
           }),

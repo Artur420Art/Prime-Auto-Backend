@@ -50,7 +50,7 @@ export class VehiclesController {
       ],
       {
         storage: memoryStorage(),
-        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+        limits: { fileSize: 12 * 1024 * 1024 }, // 12MB
       },
     ),
   )
@@ -112,7 +112,7 @@ export class VehiclesController {
       ],
       {
         storage: memoryStorage(),
-        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+        limits: { fileSize: 12 * 1024 * 1024 }, // 12MB
       },
     ),
   )
