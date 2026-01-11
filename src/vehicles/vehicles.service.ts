@@ -72,15 +72,19 @@ export class VehiclesService {
 
     const vehiclePhotos: string[] = [];
     if (photos && photos.length > 0) {
-      for (const photo of photos) {
-        const key = `vehicles/${createVehicleDto.vin}/photos/${Date.now()}-${photo.originalname}`;
-        const { url } = await this.s3Service.upload({
-          key,
-          file: photo.buffer,
-          contentType: photo.mimetype,
-        });
-        vehiclePhotos.push(url);
-      }
+      // Prepare all files for batch upload
+      const filesToUpload = photos.map((photo, index) => ({
+        key: `vehicles/${createVehicleDto.vin}/photos/${Date.now()}-${index}-${photo.originalname}`,
+        file: photo.buffer,
+        contentType: photo.mimetype,
+      }));
+
+      // Upload all photos in parallel
+      const uploadResults = await this.s3Service.uploadBatch({
+        files: filesToUpload,
+      });
+
+      vehiclePhotos.push(...uploadResults.map((result) => result.url));
     }
 
     const createdVehicle = new this.vehicleModel({
@@ -200,38 +204,43 @@ export class VehiclesService {
     // Start with existing photos
     let updatedPhotos = [...(existingVehicle.vehiclePhotos ?? [])];
 
-    // Delete old photos if specified
+    // Delete old photos if specified (in parallel)
     if (
       updateVehicleDto.deletePhotoUrls &&
       updateVehicleDto.deletePhotoUrls.length > 0
     ) {
+      const keysToDelete: string[] = [];
+
       for (const photoUrl of updateVehicleDto.deletePhotoUrls) {
         if (updatedPhotos.includes(photoUrl)) {
-          try {
-            const key = this.s3Service.extractKeyFromUrl(photoUrl);
-            await this.s3Service.delete(key);
-          } catch (error) {
-            this.logger.warn(
-              `Failed to delete photo from S3: ${error.message}`,
-            );
-          }
-
+          const key = this.s3Service.extractKeyFromUrl(photoUrl);
+          keysToDelete.push(key);
           updatedPhotos = updatedPhotos.filter((p) => p !== photoUrl);
+        }
+      }
+
+      if (keysToDelete.length > 0) {
+        try {
+          await this.s3Service.deleteBatch(keysToDelete);
+        } catch (error) {
+          this.logger.warn(`Failed to delete photos from S3: ${error.message}`);
         }
       }
     }
 
-    // Add new photos if provided
+    // Add new photos if provided (in parallel)
     if (photos && photos.length > 0) {
-      for (const photo of photos) {
-        const key = `vehicles/${existingVehicle.vin}/photos/${Date.now()}-${photo.originalname}`;
-        const { url } = await this.s3Service.upload({
-          key,
-          file: photo.buffer,
-          contentType: photo.mimetype,
-        });
-        updatedPhotos.push(url);
-      }
+      const filesToUpload = photos.map((photo, index) => ({
+        key: `vehicles/${existingVehicle.vin}/photos/${Date.now()}-${index}-${photo.originalname}`,
+        file: photo.buffer,
+        contentType: photo.mimetype,
+      }));
+
+      const uploadResults = await this.s3Service.uploadBatch({
+        files: filesToUpload,
+      });
+
+      updatedPhotos.push(...uploadResults.map((result) => result.url));
     }
 
     updateData.vehiclePhotos = updatedPhotos;
@@ -306,23 +315,27 @@ export class VehiclesService {
     this.logger.log(`Removing vehicle with ID: ${id}`);
     const vehicle = await this.findOne(id);
 
+    // Collect all keys to delete
+    const keysToDelete: string[] = [];
+
     if (vehicle.vehiclePhotos && vehicle.vehiclePhotos.length > 0) {
       for (const photoUrl of vehicle.vehiclePhotos) {
-        try {
-          const key = this.s3Service.extractKeyFromUrl(photoUrl);
-          await this.s3Service.delete(key);
-        } catch (error) {
-          this.logger.warn(`Failed to delete photo from S3: ${error.message}`);
-        }
+        const key = this.s3Service.extractKeyFromUrl(photoUrl);
+        keysToDelete.push(key);
       }
     }
 
     if (vehicle.invoiceId && vehicle.invoiceId.startsWith('http')) {
+      const key = this.s3Service.extractKeyFromUrl(vehicle.invoiceId);
+      keysToDelete.push(key);
+    }
+
+    // Delete all files in parallel
+    if (keysToDelete.length > 0) {
       try {
-        const key = this.s3Service.extractKeyFromUrl(vehicle.invoiceId);
-        await this.s3Service.delete(key);
+        await this.s3Service.deleteBatch(keysToDelete);
       } catch (error) {
-        this.logger.warn(`Failed to delete invoice: ${error.message}`);
+        this.logger.warn(`Failed to delete files from S3: ${error.message}`);
       }
     }
 

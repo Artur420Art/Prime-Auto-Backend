@@ -1,4 +1,6 @@
 import { NestFactory } from '@nestjs/core';
+import { json, urlencoded } from 'express';
+
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
@@ -6,8 +8,18 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // Increase body parser limits for large file uploads
+    bodyParser: true,
+    rawBody: true,
+  });
+
   app.enableCors();
+
+  // Configure body size limits for file uploads (50MB max)
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -78,6 +78,49 @@ export class S3Service {
     }
   }
 
+  // Upload multiple files in parallel for better performance
+  async uploadBatch({
+    files,
+  }: {
+    files: Array<{
+      key: string;
+      file: Buffer;
+      contentType?: string;
+    }>;
+  }): Promise<Array<{ url: string; key: string }>> {
+    this.logger.log(`Uploading ${files.length} files to S3 in parallel`);
+
+    try {
+      // Upload all files in parallel
+      const uploadPromises = files.map(({ key, file, contentType }) =>
+        this.s3Client.send(
+          new PutObjectCommand({
+            Bucket: this.bucketName,
+            Key: key,
+            Body: file,
+            ContentType: contentType,
+          }),
+        ),
+      );
+
+      await Promise.all(uploadPromises);
+
+      // Generate presigned URLs in parallel
+      const urlPromises = files.map(({ key }) =>
+        this.getPresignedUrl(key, 604800).then((url) => ({ url, key })),
+      );
+
+      const results = await Promise.all(urlPromises);
+      this.logger.log(`✅ Successfully uploaded ${files.length} files`);
+      return results;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Batch upload failed: ${message}`, stack);
+      throw err;
+    }
+  }
+
   // Generate a presigned URL for accessing a file
   async getPresignedUrl(
     key: string,
@@ -123,6 +166,31 @@ export class S3Service {
       const message = err instanceof Error ? err.message : 'Unknown error';
       const stack = err instanceof Error ? err.stack : undefined;
       this.logger.error(`Delete failed: ${message}`, stack);
+      throw err;
+    }
+  }
+
+  // Delete multiple files in parallel for better performance
+  async deleteBatch(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+
+    this.logger.log(`Deleting ${keys.length} files from S3 in parallel`);
+    try {
+      const deletePromises = keys.map((key) =>
+        this.s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: this.bucketName,
+            Key: key,
+          }),
+        ),
+      );
+
+      await Promise.all(deletePromises);
+      this.logger.log(`✅ Successfully deleted ${keys.length} files`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Batch delete failed: ${message}`, stack);
       throw err;
     }
   }

@@ -3,7 +3,7 @@ import { AppModule } from '../app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import express from 'express';
+import express, { json, urlencoded } from 'express';
 import { ConfigModule } from '@nestjs/config';
 
 const server = express();
@@ -11,11 +11,24 @@ let cachedServer;
 
 async function createServer() {
   if (!cachedServer) {
-    const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(server),
+      {
+        bodyParser: true,
+        rawBody: true,
+      },
+    );
     app.enableCors();
     ConfigModule.forRoot({
       isGlobal: true,
     });
+
+    app.use(json({ limit: '50mb' }));
+    app.use(urlencoded({ extended: true, limit: '50mb' }));
+
+    app.enableCors();
+
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
