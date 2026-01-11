@@ -10,7 +10,6 @@ import { Model, Types, isValidObjectId } from 'mongoose';
 import { Vehicle } from './schemas/vehicle.schema';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
-import { VehicleType } from './enums/vehicle-type.enum';
 import { UsersService } from '../users/users.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
@@ -108,7 +107,7 @@ export class VehiclesService {
       .find(query)
       .populate('client', 'firstName lastName email customerId')
       .lean()
-      .exec();
+      .exec() as any;
   }
 
   async findAllPaginated({
@@ -149,7 +148,7 @@ export class VehiclesService {
         .limit(limit)
         .sort({ createdAt: -1 })
         .lean()
-        .exec(),
+        .exec() as any,
       this.vehicleModel.countDocuments(query).exec(),
     ]);
 

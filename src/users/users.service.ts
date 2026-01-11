@@ -94,7 +94,7 @@ export class UsersService {
         __v: 0,
       })
       .lean()
-      .exec();
+      .exec() as any;
   }
 
   async findAllPaginated({
@@ -134,7 +134,7 @@ export class UsersService {
         .limit(limit)
         .sort({ createdAt: -1 })
         .lean()
-        .exec(),
+        .exec() as any,
       this.userModel.countDocuments(query).exec(),
     ]);
 

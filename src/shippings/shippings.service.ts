@@ -43,7 +43,7 @@ export class ShippingsService {
 
   async getAllCityPrices(): Promise<CityPrice[]> {
     this.logger.log('Fetching all city prices');
-    return this.cityPriceModel.find().lean().exec();
+    return this.cityPriceModel.find().lean().exec() as any;
   }
 
   async getAllCityPricesPaginated(
@@ -72,7 +72,7 @@ export class ShippingsService {
         .limit(limit)
         .sort({ city: 1 })
         .lean()
-        .exec(),
+        .exec() as any,
       this.cityPriceModel.countDocuments(query).exec(),
     ]);
 
@@ -104,7 +104,7 @@ export class ShippingsService {
     const query: FilterQuery<CityPrice> = {};
     if (city) query.city = new RegExp(`^${city}$`, 'i');
     if (category) query.category = category;
-    return this.cityPriceModel.find(query).lean().exec();
+    return this.cityPriceModel.find(query).lean().exec() as any;
   }
 
   async findAllUserShippings(user: {
@@ -164,7 +164,7 @@ export class ShippingsService {
         .limit(limit)
         .sort({ city: 1 })
         .lean()
-        .exec(),
+        .exec() as any,
       this.userShippingModel.countDocuments(query).exec(),
     ]);
 
@@ -232,7 +232,7 @@ export class ShippingsService {
       .find(query)
       .populate('user', 'firstName lastName email customerId')
       .lean()
-      .exec();
+      .exec() as any;
   }
 
   async findUserShippingsByCityAndCategory(
@@ -257,7 +257,7 @@ export class ShippingsService {
       .find(query)
       .populate('user', 'firstName lastName email customerId')
       .lean()
-      .exec();
+      .exec() as any;
   }
 
   async findOneUserShipping(id: string): Promise<UserShipping> {
@@ -377,10 +377,6 @@ export class ShippingsService {
     this.logger.log(
       `Admin bulk updating default_price: city=${updateDto.city}, category=${updateDto.category}, userId=${userId}`,
     );
-
-    const cityPriceQuery: FilterQuery<CityPrice> = {};
-    if (updateDto.city) cityPriceQuery.city = updateDto.city;
-    if (updateDto.category) cityPriceQuery.category = updateDto.category;
 
     const cityPriceQuery: FilterQuery<CityPrice> = {};
     if (updateDto.city) cityPriceQuery.city = updateDto.city;

@@ -45,7 +45,7 @@ export class AdminVehiclesService {
       .find(filter)
       .sort({ createdAt: -1 })
       .lean()
-      .exec();
+      .exec() as any;
   };
 
   findOne = async (id: string): Promise<AdminVehicle> => {
