@@ -6,8 +6,10 @@ import {
   IsNotEmpty,
   IsBoolean,
 } from 'class-validator';
-import { VehicleModel, VehicleType, Auction } from '../enums/vehicle-type.enum';
+
 import { ApiProperty } from '@nestjs/swagger';
+
+import { VehicleModel, VehicleType, Auction } from '../enums/vehicle-type.enum';
 
 export class CreateVehicleDto {
   @ApiProperty()
@@ -69,7 +71,15 @@ export class CreateVehicleDto {
 
   @ApiProperty({ type: 'string', format: 'binary', required: false })
   @IsOptional()
-  invoice?: any;
+  invoice?: unknown;
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', format: 'binary' },
+    required: false,
+  })
+  @IsOptional()
+  vehiclePhotos?: unknown;
 
   @ApiProperty({ type: 'string', required: false })
   @IsOptional()
@@ -78,16 +88,13 @@ export class CreateVehicleDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsBoolean()
   paid?: boolean;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsBoolean()
   shippingPaid?: boolean;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsBoolean()
   insurance?: boolean;
 }

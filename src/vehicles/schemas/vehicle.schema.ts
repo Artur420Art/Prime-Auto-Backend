@@ -1,8 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { ApiProperty } from '@nestjs/swagger';
+
 import { VehicleType } from '../enums/vehicle-type.enum';
 import { User } from '../../users/schemas/user.schema';
-import { ApiProperty } from '@nestjs/swagger';
 
 @Schema({ timestamps: true })
 export class Vehicle extends Document {
@@ -53,6 +54,10 @@ export class Vehicle extends Document {
   @ApiProperty({ required: false })
   @Prop({ required: false })
   invoiceId: string;
+
+  @ApiProperty({ type: [String], required: false })
+  @Prop({ type: [String], default: [] })
+  vehiclePhotos: string[];
 
   @ApiProperty({ required: false })
   @Prop({ default: false })

@@ -6,14 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
+
 import { Vehicle } from './schemas/vehicle.schema';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleType } from './enums/vehicle-type.enum';
 import { UsersService } from '../users/users.service';
-import { BlobService } from '../common/blob/blob.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
+import { S3Service } from '../common/s3/s3.service';
 
 @Injectable()
 export class VehiclesService {
@@ -22,7 +23,7 @@ export class VehiclesService {
   constructor(
     @InjectModel(Vehicle.name) private vehicleModel: Model<Vehicle>,
     private readonly usersService: UsersService,
-    private readonly blobService: BlobService,
+    private readonly s3Service: S3Service,
   ) {}
 
   private async resolveUserObjectId(
@@ -44,10 +45,15 @@ export class VehiclesService {
     return user._id as Types.ObjectId;
   }
 
-  async create(
-    createVehicleDto: CreateVehicleDto,
-    file?: Express.Multer.File,
-  ): Promise<Vehicle> {
+  async create({
+    createVehicleDto,
+    invoiceFile,
+    photos,
+  }: {
+    createVehicleDto: CreateVehicleDto;
+    invoiceFile?: Express.Multer.File;
+    photos?: Express.Multer.File[];
+  }): Promise<Vehicle> {
     this.logger.log(`Creating vehicle: ${createVehicleDto.vin}`);
 
     const clientObjectId = await this.resolveUserObjectId(
@@ -55,20 +61,34 @@ export class VehiclesService {
     );
 
     let invoiceId = createVehicleDto.invoiceId;
-    if (file) {
-      const blob = await this.blobService.upload(
-        `invoices/${Date.now()}-${file.originalname}`,
-        file.buffer,
-        file.mimetype,
-      );
-      JSON.stringify(`saved invoice Id ${JSON.stringify(blob.pathname)}`);
-      invoiceId = blob.url;
+    if (invoiceFile) {
+      const key = `vehicles/${createVehicleDto.vin}/invoices/${Date.now()}-${invoiceFile.originalname}`;
+      const { url } = await this.s3Service.upload({
+        key,
+        file: invoiceFile.buffer,
+        contentType: invoiceFile.mimetype,
+      });
+      invoiceId = url;
+    }
+
+    const vehiclePhotos: string[] = [];
+    if (photos && photos.length > 0) {
+      for (const photo of photos) {
+        const key = `vehicles/${createVehicleDto.vin}/photos/${Date.now()}-${photo.originalname}`;
+        const { url } = await this.s3Service.upload({
+          key,
+          file: photo.buffer,
+          contentType: photo.mimetype,
+        });
+        vehiclePhotos.push(url);
+      }
     }
 
     const createdVehicle = new this.vehicleModel({
       ...createVehicleDto,
       client: clientObjectId,
       invoiceId,
+      vehiclePhotos,
     });
     return createdVehicle.save();
   }
@@ -162,7 +182,8 @@ export class VehiclesService {
   async update(
     id: string,
     updateVehicleDto: UpdateVehicleDto,
-    file?: Express.Multer.File,
+    invoiceFile?: Express.Multer.File,
+    photos?: Express.Multer.File[],
   ): Promise<Vehicle> {
     this.logger.log(`Updating vehicle with ID: ${id}`);
 
@@ -175,25 +196,69 @@ export class VehiclesService {
       );
     }
 
-    if (file) {
+    // Start with existing photos
+    let updatedPhotos = [...(existingVehicle.vehiclePhotos ?? [])];
+
+    // Delete old photos if specified
+    if (
+      updateVehicleDto.deletePhotoUrls &&
+      updateVehicleDto.deletePhotoUrls.length > 0
+    ) {
+      for (const photoUrl of updateVehicleDto.deletePhotoUrls) {
+        if (updatedPhotos.includes(photoUrl)) {
+          try {
+            const key = this.s3Service.extractKeyFromUrl(photoUrl);
+            await this.s3Service.delete(key);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to delete photo from S3: ${error.message}`,
+            );
+          }
+
+          updatedPhotos = updatedPhotos.filter((p) => p !== photoUrl);
+        }
+      }
+    }
+
+    // Add new photos if provided
+    if (photos && photos.length > 0) {
+      for (const photo of photos) {
+        const key = `vehicles/${existingVehicle.vin}/photos/${Date.now()}-${photo.originalname}`;
+        const { url } = await this.s3Service.upload({
+          key,
+          file: photo.buffer,
+          contentType: photo.mimetype,
+        });
+        updatedPhotos.push(url);
+      }
+    }
+
+    updateData.vehiclePhotos = updatedPhotos;
+    delete updateData.deletePhotoUrls;
+
+    if (invoiceFile) {
       // Delete old invoice if it exists
       if (
         existingVehicle.invoiceId &&
         existingVehicle.invoiceId.startsWith('http')
       ) {
         try {
-          await this.blobService.delete(existingVehicle.invoiceId);
+          const key = this.s3Service.extractKeyFromUrl(
+            existingVehicle.invoiceId,
+          );
+          await this.s3Service.delete(key);
         } catch (error) {
           this.logger.warn(`Failed to delete old invoice: ${error.message}`);
         }
       }
 
-      const blob = await this.blobService.upload(
-        `invoices/${Date.now()}-${file.originalname}`,
-        file.buffer,
-        file.mimetype,
-      );
-      updateData.invoiceId = blob.url;
+      const key = `vehicles/${existingVehicle.vin}/invoices/${Date.now()}-${invoiceFile.originalname}`;
+      const { url } = await this.s3Service.upload({
+        key,
+        file: invoiceFile.buffer,
+        contentType: invoiceFile.mimetype,
+      });
+      updateData.invoiceId = url;
     }
 
     const updatedVehicle = await this.vehicleModel
@@ -206,13 +271,55 @@ export class VehiclesService {
     return updatedVehicle;
   }
 
+  async deletePhoto({
+    id,
+    photoUrl,
+  }: {
+    id: string;
+    photoUrl: string;
+  }): Promise<{ status: string }> {
+    this.logger.log(`Deleting photo from vehicle with ID: ${id}`);
+
+    const vehicle = await this.findOne(id);
+
+    if (!vehicle.vehiclePhotos?.includes(photoUrl)) {
+      throw new BadRequestException('Photo not found in vehicle photos');
+    }
+
+    try {
+      const key = this.s3Service.extractKeyFromUrl(photoUrl);
+      await this.s3Service.delete(key);
+    } catch (error) {
+      this.logger.warn(`Failed to delete photo from S3: ${error.message}`);
+    }
+
+    const updatedPhotos = vehicle.vehiclePhotos.filter((p) => p !== photoUrl);
+    await this.vehicleModel
+      .findByIdAndUpdate(id, { vehiclePhotos: updatedPhotos }, { new: true })
+      .exec();
+
+    return { status: 'success' };
+  }
+
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing vehicle with ID: ${id}`);
     const vehicle = await this.findOne(id);
 
+    if (vehicle.vehiclePhotos && vehicle.vehiclePhotos.length > 0) {
+      for (const photoUrl of vehicle.vehiclePhotos) {
+        try {
+          const key = this.s3Service.extractKeyFromUrl(photoUrl);
+          await this.s3Service.delete(key);
+        } catch (error) {
+          this.logger.warn(`Failed to delete photo from S3: ${error.message}`);
+        }
+      }
+    }
+
     if (vehicle.invoiceId && vehicle.invoiceId.startsWith('http')) {
       try {
-        await this.blobService.delete(vehicle.invoiceId);
+        const key = this.s3Service.extractKeyFromUrl(vehicle.invoiceId);
+        await this.s3Service.delete(key);
       } catch (error) {
         this.logger.warn(`Failed to delete invoice: ${error.message}`);
       }

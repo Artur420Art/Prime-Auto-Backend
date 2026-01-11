@@ -10,16 +10,9 @@ import {
   Query,
   Req,
   UseInterceptors,
-  UploadedFile,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
+  UploadedFiles,
 } from '@nestjs/common';
-import { VehiclesService } from './vehicles.service';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiConsumes,
   ApiTags,
@@ -30,6 +23,11 @@ import {
 } from '@nestjs/swagger';
 import { Vehicle } from './schemas/vehicle.schema';
 import { memoryStorage } from 'multer';
+
+import { VehiclesService } from './vehicles.service';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
@@ -45,23 +43,40 @@ export class VehiclesController {
   @ApiOperation({ summary: 'Create a new vehicle' })
   @ApiCreatedResponse({ type: Vehicle })
   @UseInterceptors(
-    FileInterceptor('invoice', {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'invoice', maxCount: 1 },
+        { name: 'vehiclePhotos', maxCount: 25 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      },
+    ),
   )
   @ApiConsumes('multipart/form-data')
   create(
     @Body() createVehicleDto: CreateVehicleDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: {
+      invoice?: Express.Multer.File[];
+      vehiclePhotos?: Express.Multer.File[];
+    },
   ) {
-    return this.vehiclesService.create(createVehicleDto, file);
+    const invoiceFile = files?.invoice?.[0];
+    const photos = files?.vehiclePhotos ?? [];
+
+    return this.vehiclesService.create({
+      createVehicleDto,
+      invoiceFile,
+      photos,
+    });
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all vehicles' })
   @ApiOkResponse({ type: [Vehicle] })
-  findAll(@Req() req: any) {
+  findAll(@Req() req: { user: { userId: string; roles: string[] } }) {
     return this.vehiclesService.findAll(req.user);
   }
 
@@ -69,7 +84,7 @@ export class VehiclesController {
   @ApiOperation({ summary: 'Get paginated vehicles' })
   @ApiOkResponse({ type: PaginatedResponseDto<Vehicle> })
   findAllPaginated(
-    @Req() req: any,
+    @Req() req: { user: { userId: string; roles: string[] } },
     @Query() paginationQuery: PaginationQueryDto,
   ) {
     return this.vehiclesService.findAllPaginated({
@@ -86,25 +101,51 @@ export class VehiclesController {
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('invoice'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Update a vehicle' })
   @ApiOkResponse({ type: Vehicle })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'invoice', maxCount: 1 },
+        { name: 'vehiclePhotos', maxCount: 25 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      },
+    ),
+  )
   update(
     @Param('id') id: string,
     @Body() updateVehicleDto: UpdateVehicleDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }), // 5MB
-          new FileTypeValidator({ fileType: 'pdf' }),
-        ],
-        fileIsRequired: false,
-      }),
-    )
-    file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: {
+      invoice?: Express.Multer.File[];
+      vehiclePhotos?: Express.Multer.File[];
+    },
   ) {
-    return this.vehiclesService.update(id, updateVehicleDto, file);
+    const invoiceFile = files?.invoice?.[0];
+    const photos = files?.vehiclePhotos ?? [];
+
+    return this.vehiclesService.update(
+      id,
+      updateVehicleDto,
+      invoiceFile,
+      photos,
+    );
+  }
+
+  @Delete(':id/photos')
+  @ApiOperation({
+    summary: 'Delete a photo from a vehicle',
+  })
+  @ApiOkResponse({ type: Vehicle })
+  deletePhoto(@Param('id') id: string, @Body('photoUrl') photoUrl: string) {
+    return this.vehiclesService.deletePhoto({
+      id,
+      photoUrl,
+    });
   }
 
   @Delete(':id')
