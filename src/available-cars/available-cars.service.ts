@@ -180,9 +180,42 @@ export class AvailableCarsService {
 
     const updateData: any = { ...updateAvailableCarDto };
 
-  
+    // Start with existing photos
+    let updatedPhotos = [...existingCar.carPhotos];
+
+    // Delete old photos if specified
+    if (
+      updateAvailableCarDto.deletePhotoUrls &&
+      updateAvailableCarDto.deletePhotoUrls.length > 0
+    ) {
+      this.logger.log(
+        `Deleting ${updateAvailableCarDto.deletePhotoUrls.length} photos`,
+      );
+
+      for (const photoUrl of updateAvailableCarDto.deletePhotoUrls) {
+        if (existingCar.carPhotos.includes(photoUrl)) {
+          try {
+            const key = this.s3Service.extractKeyFromUrl(photoUrl);
+            await this.s3Service.delete(key);
+            this.logger.log(`Deleted photo from S3: ${key}`);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to delete photo from S3: ${error.message}`,
+            );
+          }
+
+          // Remove from the photos array
+          updatedPhotos = updatedPhotos.filter((photo) => photo !== photoUrl);
+        } else {
+          this.logger.warn(`Photo URL not found in car photos: ${photoUrl}`);
+        }
+      }
+    }
+
+    // Add new photos if provided
     if (photos && photos.length > 0) {
-      const photoUrls: string[] = [];
+      this.logger.log(`Adding ${photos.length} new photos`);
+
       for (const photo of photos) {
         const key = `available-cars/${existingCar.carVin}/${Date.now()}-${photo.originalname}`;
         const { url } = await this.s3Service.upload({
@@ -190,12 +223,15 @@ export class AvailableCarsService {
           file: photo.buffer,
           contentType: photo.mimetype,
         });
-        photoUrls.push(url);
+        updatedPhotos.push(url);
       }
-      // Append new public URLs to existing ones
-      updateData.carPhotos = [...existingCar.carPhotos, ...photoUrls];
     }
-    
+
+    // Update the carPhotos array
+    updateData.carPhotos = updatedPhotos;
+
+    // Remove deletePhotoUrls from updateData as it's not a schema field
+    delete updateData.deletePhotoUrls;
 
     const updatedCar = await this.availableCarModel
       .findByIdAndUpdate(id, updateData, { new: true })
@@ -246,7 +282,6 @@ export class AvailableCarsService {
 
     const car = await this.findOne(id);
 
-    // Delete all photos from S3
     if (car.carPhotos && car.carPhotos.length > 0) {
       for (const photoUrl of car.carPhotos) {
         try {

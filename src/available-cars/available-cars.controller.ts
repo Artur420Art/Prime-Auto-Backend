@@ -123,7 +123,7 @@ export class AvailableCarsController {
   @ApiOperation({ summary: 'Update an available car (Admin only)' })
   @ApiOkResponse({ type: AvailableCar })
   @UseInterceptors(
-    FilesInterceptor('carPhotos', 10, {
+    FilesInterceptor('carPhotos', 25,{
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
