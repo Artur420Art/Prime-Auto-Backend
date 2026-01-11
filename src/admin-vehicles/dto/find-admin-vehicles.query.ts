@@ -15,4 +15,3 @@ export class FindAdminVehiclesQueryDto {
   @IsEnum(VehicleType)
   type?: VehicleType;
 }
-

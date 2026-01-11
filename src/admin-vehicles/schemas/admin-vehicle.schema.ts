@@ -16,4 +16,3 @@ export class AdminVehicle extends Document {
 }
 
 export const AdminVehicleSchema = SchemaFactory.createForClass(AdminVehicle);
-

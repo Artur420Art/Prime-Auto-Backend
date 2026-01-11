@@ -136,9 +136,6 @@ export class NotificationsService {
   }
 
   async getAllNotifications() {
-    return this.notificationModel
-      .find()
-      .sort({ createdAt: -1 })
-      .exec();
+    return this.notificationModel.find().sort({ createdAt: -1 }).exec();
   }
 }

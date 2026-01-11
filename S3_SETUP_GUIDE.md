@@ -78,7 +78,7 @@ const key = s3Service.extractKeyFromUrl(
 ```
 
 ## Usage in Available Cars Service
-
+  
 ### Creating a Car with Photos
 
 ```typescript

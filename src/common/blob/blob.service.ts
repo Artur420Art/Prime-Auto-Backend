@@ -23,7 +23,9 @@ export class BlobService {
       this.logger.log(`Successfully uploaded file: ${blob.url}`);
       return blob;
     } catch (error) {
-      this.logger.error(`Failed to upload file to Vercel Blob: ${error.message}`);
+      this.logger.error(
+        `Failed to upload file to Vercel Blob: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -36,7 +38,9 @@ export class BlobService {
       });
       this.logger.log(`Successfully deleted file: ${url}`);
     } catch (error) {
-      this.logger.error(`Failed to delete file from Vercel Blob: ${error.message}`);
+      this.logger.error(
+        `Failed to delete file from Vercel Blob: ${error.message}`,
+      );
       throw error;
     }
   }

@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 import { VehicleType } from '../../vehicles/enums/vehicle-type.enum';
 
@@ -24,4 +30,3 @@ export class CreateAdminVehicleDto {
   @IsString({ each: true })
   pictures?: string[];
 }
-

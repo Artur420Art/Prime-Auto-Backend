@@ -34,8 +34,6 @@ export class AvailableCarsService {
     photos?: Express.Multer.File[];
   }): Promise<AvailableCar> {
     this.logger.log(`Creating available car: ${createAvailableCarDto.carVin}`);
-
-    // Check if car with VIN already exists
     const existingCar = await this.availableCarModel
       .findOne({ carVin: createAvailableCarDto.carVin })
       .exec();
@@ -46,16 +44,17 @@ export class AvailableCarsService {
       );
     }
 
-    // Upload photos to S3
     const photoUrls: string[] = [];
     if (photos && photos.length > 0) {
       for (const photo of photos) {
         const key = `available-cars/${createAvailableCarDto.carVin}/${Date.now()}-${photo.originalname}`;
+
         const { url } = await this.s3Service.upload({
           key,
           file: photo.buffer,
           contentType: photo.mimetype,
         });
+
         photoUrls.push(url);
       }
     }
@@ -181,7 +180,7 @@ export class AvailableCarsService {
 
     const updateData: any = { ...updateAvailableCarDto };
 
-    // Upload new photos if provided
+  
     if (photos && photos.length > 0) {
       const photoUrls: string[] = [];
       for (const photo of photos) {
@@ -193,9 +192,10 @@ export class AvailableCarsService {
         });
         photoUrls.push(url);
       }
-      // Append new photos to existing ones
+      // Append new public URLs to existing ones
       updateData.carPhotos = [...existingCar.carPhotos, ...photoUrls];
     }
+    
 
     const updatedCar = await this.availableCarModel
       .findByIdAndUpdate(id, updateData, { new: true })

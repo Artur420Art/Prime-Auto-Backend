@@ -61,7 +61,7 @@ export class VehiclesService {
         file.buffer,
         file.mimetype,
       );
-      JSON.stringify(`saved invoice Id ${JSON.stringify(blob.pathname)}`)
+      JSON.stringify(`saved invoice Id ${JSON.stringify(blob.pathname)}`);
       invoiceId = blob.url;
     }
 
@@ -177,7 +177,10 @@ export class VehiclesService {
 
     if (file) {
       // Delete old invoice if it exists
-      if (existingVehicle.invoiceId && existingVehicle.invoiceId.startsWith('http')) {
+      if (
+        existingVehicle.invoiceId &&
+        existingVehicle.invoiceId.startsWith('http')
+      ) {
         try {
           await this.blobService.delete(existingVehicle.invoiceId);
         } catch (error) {

@@ -4,7 +4,8 @@ import { ShippingCategory } from '../enums/category.enum';
 
 export class BulkUpdateDefaultPriceDto {
   @ApiProperty({
-    description: 'City name (optional - if not provided, applies to all cities)',
+    description:
+      'City name (optional - if not provided, applies to all cities)',
     required: false,
   })
   @IsOptional()

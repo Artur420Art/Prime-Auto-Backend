@@ -4,7 +4,9 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class S3Service {
@@ -19,9 +21,10 @@ export class S3Service {
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
     const region = process.env.S3_REGION;
+
     if (!bucket || !endpoint || !accessKeyId || !secretAccessKey) {
       throw new Error(
-        'Missing S3 env variables: S3_BUCKET_NAME, S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY',
+        'Missing S3 env variables: AWS_S3_BUCKET_NAME, AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY',
       );
     }
 
@@ -35,15 +38,18 @@ export class S3Service {
         accessKeyId,
         secretAccessKey,
       },
-      forcePathStyle: true,
+      forcePathStyle: false, // ✅ MUST be false for Railway
     });
+
+    this.logger.log('✅ S3 Client initialized for Railway S3');
   }
 
+  // Upload a file and return a presigned URL (valid for 7 days)
   async upload({
-                 key,
-                 file,
-                 contentType,
-               }: {
+    key,
+    file,
+    contentType,
+  }: {
     key: string;
     file: Buffer;
     contentType?: string;
@@ -60,18 +66,32 @@ export class S3Service {
         }),
       );
 
-      const url = `${this.endpoint}/${this.bucketName}/${key}`;
+      // Generate a presigned URL valid for 7 days (604800 seconds)
+      const url = await this.getPresignedUrl(key, 604800);
+      this.logger.log(`✅ File uploaded successfully with presigned URL`);
       return { url, key };
     } catch (err) {
-      const error = err as Error;
-      this.logger.error(`Upload failed: ${error.message}`);
-      throw error;
+      this.logger.error('Upload failed', err as any);
+      throw err;
     }
   }
 
+  // Generate a presigned URL for accessing a file
+  async getPresignedUrl(
+    key: string,
+    expiresIn: number = 604800,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    return await getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  // Delete a file
   async delete(key: string): Promise<void> {
     this.logger.log(`Deleting file from S3: ${key}`);
-
     try {
       await this.s3Client.send(
         new DeleteObjectCommand({
@@ -80,12 +100,12 @@ export class S3Service {
         }),
       );
     } catch (err) {
-      const error = err as Error;
-      this.logger.error(`Delete failed: ${error.message}`);
-      throw error;
+      this.logger.error('Delete failed', err as any);
+      throw err;
     }
   }
 
+  // Check if a file exists
   async exists(key: string): Promise<boolean> {
     try {
       await this.s3Client.send(
@@ -103,7 +123,6 @@ export class S3Service {
       throw err;
     }
   }
-
   extractKeyFromUrl(url: string): string {
     const { pathname } = new URL(url);
     const parts = pathname.split('/').filter(Boolean);

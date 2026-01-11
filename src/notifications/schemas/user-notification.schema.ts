@@ -20,5 +20,8 @@ export const UserNotificationSchema =
   SchemaFactory.createForClass(UserNotification);
 
 // Create compound index for efficient queries
-UserNotificationSchema.index({ userId: 1, notificationId: 1 }, { unique: true });
+UserNotificationSchema.index(
+  { userId: 1, notificationId: 1 },
+  { unique: true },
+);
 UserNotificationSchema.index({ userId: 1, is_read: 1 });
