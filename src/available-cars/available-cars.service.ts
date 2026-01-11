@@ -69,7 +69,11 @@ export class AvailableCarsService {
 
   async findAll(): Promise<AvailableCar[]> {
     this.logger.log('Fetching all available cars');
-    return this.availableCarModel.find().sort({ createdAt: -1 }).exec();
+    return this.availableCarModel
+      .find()
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec() as any;
   }
 
   async findAllByCategory(carCategory?: CarCategory): Promise<AvailableCar[]> {
@@ -79,7 +83,11 @@ export class AvailableCarsService {
 
     const query = carCategory ? { carCategory } : {};
 
-    return this.availableCarModel.find(query).sort({ createdAt: -1 }).exec();
+    return this.availableCarModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec() as any;
   }
 
   async findAllPaginated(
@@ -122,7 +130,8 @@ export class AvailableCarsService {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
-        .exec(),
+        .lean()
+        .exec() as any,
       this.availableCarModel.countDocuments(query).exec(),
     ]);
 

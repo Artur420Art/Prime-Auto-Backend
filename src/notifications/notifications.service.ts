@@ -31,8 +31,8 @@ export class NotificationsService {
     });
     await notification.save();
 
-    // Get all users
-    const allUsers = await this.userModel.find().select('_id').exec();
+    // Get all users (only need IDs for performance)
+    const allUsers = await this.userModel.find().select('_id').lean().exec();
 
     // Create user-notification records for all users
     const userNotifications = allUsers.map((user) => ({
@@ -61,6 +61,7 @@ export class NotificationsService {
       .find(query)
       .populate('notificationId')
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
 
     return userNotifications.map((un) => ({
@@ -136,6 +137,6 @@ export class NotificationsService {
   }
 
   async getAllNotifications() {
-    return this.notificationModel.find().sort({ createdAt: -1 }).exec();
+    return this.notificationModel.find().sort({ createdAt: -1 }).lean().exec();
   }
 }

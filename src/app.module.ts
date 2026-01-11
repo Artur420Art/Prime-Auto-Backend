@@ -15,6 +15,7 @@ import { AdminVehiclesModule } from './admin-vehicles/admin-vehicles.module';
 import { AvailableCarsModule } from './available-cars/available-cars.module';
 import { S3Module } from './common/s3/s3.module';
 import { HealthModule } from './health/health.module';
+import { FilesModule } from './files/files.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { HealthModule } from './health/health.module';
     NotificationsModule,
     AvailableCarsModule,
     HealthModule,
+    FilesModule,
   ],
   controllers: [],
   providers: [],

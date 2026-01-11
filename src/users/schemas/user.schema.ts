@@ -42,3 +42,10 @@ export class User extends Document {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Indexes for performance optimization
+UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ username: 1 });
+UserSchema.index({ customerId: 1 }, { unique: true, sparse: true });
+UserSchema.index({ roles: 1 });
+UserSchema.index({ createdAt: -1 });

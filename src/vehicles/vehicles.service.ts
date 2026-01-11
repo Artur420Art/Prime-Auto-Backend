@@ -107,6 +107,7 @@ export class VehiclesService {
     return this.vehicleModel
       .find(query)
       .populate('client', 'firstName lastName email customerId')
+      .lean()
       .exec();
   }
 
@@ -147,6 +148,7 @@ export class VehiclesService {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
+        .lean()
         .exec(),
       this.vehicleModel.countDocuments(query).exec(),
     ]);

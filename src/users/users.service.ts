@@ -93,6 +93,7 @@ export class UsersService {
         updatedAt: 0,
         __v: 0,
       })
+      .lean()
       .exec();
   }
 
@@ -132,6 +133,7 @@ export class UsersService {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
+        .lean()
         .exec(),
       this.userModel.countDocuments(query).exec(),
     ]);

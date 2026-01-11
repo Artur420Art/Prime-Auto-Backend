@@ -58,3 +58,10 @@ export class AvailableCar extends Document {
 }
 
 export const AvailableCarSchema = SchemaFactory.createForClass(AvailableCar);
+
+// Indexes for performance optimization
+AvailableCarSchema.index({ carVin: 1 }, { unique: true });
+AvailableCarSchema.index({ carCategory: 1 });
+AvailableCarSchema.index({ createdAt: -1 });
+AvailableCarSchema.index({ carModel: 1 });
+AvailableCarSchema.index({ carYear: 1 });

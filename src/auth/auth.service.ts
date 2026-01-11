@@ -146,9 +146,15 @@ export class AuthService {
       this.logger.warn(`User not found for ID: ${userId}`);
       throw new NotFoundException('User not found');
     }
-    const userObj = user.toObject();
-    delete userObj.password;
-    return userObj;
+    // Return user object without password field
+    if (typeof user.toObject === 'function') {
+      const userObj = user.toObject();
+      delete userObj.password;
+      return userObj;
+    }
+    // If lean() was used, just destructure to exclude password
+    const { password, ...userWithoutPassword } = user as any;
+    return userWithoutPassword;
   }
 
   async logout(userId: string) {

@@ -73,3 +73,13 @@ export class Vehicle extends Document {
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);
+
+// Indexes for performance optimization
+VehicleSchema.index({ client: 1 });
+VehicleSchema.index({ vin: 1 });
+VehicleSchema.index({ createdAt: -1 });
+VehicleSchema.index({ type: 1 });
+VehicleSchema.index({ purchaseDate: -1 });
+// Compound indexes for common query patterns
+VehicleSchema.index({ client: 1, createdAt: -1 });
+VehicleSchema.index({ client: 1, type: 1 });

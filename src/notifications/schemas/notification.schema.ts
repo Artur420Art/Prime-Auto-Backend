@@ -17,3 +17,7 @@ export class Notification extends Document {
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
+
+// Indexes for performance optimization
+NotificationSchema.index({ createdBy: 1 });
+NotificationSchema.index({ createdAt: -1 });

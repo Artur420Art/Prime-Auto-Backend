@@ -43,7 +43,7 @@ export class ShippingsService {
 
   async getAllCityPrices(): Promise<CityPrice[]> {
     this.logger.log('Fetching all city prices');
-    return this.cityPriceModel.find().exec();
+    return this.cityPriceModel.find().lean().exec();
   }
 
   async getAllCityPricesPaginated(
@@ -71,6 +71,7 @@ export class ShippingsService {
         .skip(skip)
         .limit(limit)
         .sort({ city: 1 })
+        .lean()
         .exec(),
       this.cityPriceModel.countDocuments(query).exec(),
     ]);
@@ -103,7 +104,7 @@ export class ShippingsService {
     const query: FilterQuery<CityPrice> = {};
     if (city) query.city = new RegExp(`^${city}$`, 'i');
     if (category) query.category = category;
-    return this.cityPriceModel.find(query).exec();
+    return this.cityPriceModel.find(query).lean().exec();
   }
 
   async findAllUserShippings(user: {
@@ -162,6 +163,7 @@ export class ShippingsService {
         .skip(skip)
         .limit(limit)
         .sort({ city: 1 })
+        .lean()
         .exec(),
       this.userShippingModel.countDocuments(query).exec(),
     ]);
@@ -191,7 +193,7 @@ export class ShippingsService {
         `Initializing user shippings with base prices for user ${userId}`,
       );
 
-      const cityPrices = await this.cityPriceModel.find().exec();
+      const cityPrices = await this.cityPriceModel.find().lean().exec();
 
       if (cityPrices.length > 0) {
         const userShippings = cityPrices.map((cp) => ({
@@ -229,6 +231,7 @@ export class ShippingsService {
     return this.userShippingModel
       .find(query)
       .populate('user', 'firstName lastName email customerId')
+      .lean()
       .exec();
   }
 
@@ -253,6 +256,7 @@ export class ShippingsService {
     return this.userShippingModel
       .find(query)
       .populate('user', 'firstName lastName email customerId')
+      .lean()
       .exec();
   }
 
@@ -378,22 +382,25 @@ export class ShippingsService {
     if (updateDto.city) cityPriceQuery.city = updateDto.city;
     if (updateDto.category) cityPriceQuery.category = updateDto.category;
 
-    const cityPrices = await this.cityPriceModel.find(cityPriceQuery).exec();
-
-    if (cityPrices.length === 0) {
-      throw new NotFoundException(
-        'No matching city prices found for the given filters',
-      );
-    }
+    const cityPriceQuery: FilterQuery<CityPrice> = {};
+    if (updateDto.city) cityPriceQuery.city = updateDto.city;
+    if (updateDto.category) cityPriceQuery.category = updateDto.category;
 
     const userShippingQuery: FilterQuery<UserShipping> = {};
     if (userId) userShippingQuery.user = userId;
     if (updateDto.city) userShippingQuery.city = updateDto.city;
     if (updateDto.category) userShippingQuery.category = updateDto.category;
 
-    const existingShippings = await this.userShippingModel
-      .find(userShippingQuery)
-      .exec();
+    const [cityPrices, existingShippings] = await Promise.all([
+      this.cityPriceModel.find(cityPriceQuery).lean().exec(),
+      this.userShippingModel.find(userShippingQuery).lean().exec(),
+    ]);
+
+    if (cityPrices.length === 0) {
+      throw new NotFoundException(
+        'No matching city prices found for the given filters',
+      );
+    }
 
     const updates: AnyBulkWriteOperation<UserShipping>[] = [];
     for (const cityPrice of cityPrices) {
@@ -454,21 +461,24 @@ export class ShippingsService {
       `User ${userId} adjusting all prices by ${adjustDto.adjustment_amount}`,
     );
 
-    const cityPrices = await this.cityPriceModel.find().exec();
+    const [cityPrices, existingUserShippings] = await Promise.all([
+      this.cityPriceModel.find().lean().exec(),
+      this.userShippingModel.find({ user: userId }).lean().exec(),
+    ]);
 
     if (cityPrices.length === 0) {
       throw new NotFoundException('No city prices found in the system');
     }
 
+    // Create a map for O(1) lookup instead of N queries
+    const existingShippingsMap = new Map(
+      existingUserShippings.map((s) => [`${s.city}-${s.category}`, s]),
+    );
+
     const updates: AnyBulkWriteOperation<UserShipping>[] = [];
     for (const cityPrice of cityPrices) {
-      const existingUserShipping = await this.userShippingModel
-        .findOne({
-          user: userId,
-          city: cityPrice.city,
-          category: cityPrice.category,
-        })
-        .exec();
+      const key = `${cityPrice.city}-${cityPrice.category}`;
+      const existingUserShipping = existingShippingsMap.get(key);
 
       const defaultPrice =
         existingUserShipping?.default_price ?? cityPrice.base_price;

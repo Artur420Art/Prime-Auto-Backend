@@ -16,3 +16,8 @@ export class AdminVehicle extends Document {
 }
 
 export const AdminVehicleSchema = SchemaFactory.createForClass(AdminVehicle);
+
+// Indexes for performance optimization
+AdminVehicleSchema.index({ type: 1 });
+AdminVehicleSchema.index({ mark: 1 });
+AdminVehicleSchema.index({ createdAt: -1 });

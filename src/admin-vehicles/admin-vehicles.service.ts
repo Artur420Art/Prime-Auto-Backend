@@ -41,7 +41,11 @@ export class AdminVehiclesService {
     query: FindAdminVehiclesQueryDto,
   ): Promise<AdminVehicle[]> => {
     const filter = this.buildFindFilter(query);
-    return this.adminVehicleModel.find(filter).sort({ createdAt: -1 }).exec();
+    return this.adminVehicleModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
   };
 
   findOne = async (id: string): Promise<AdminVehicle> => {
