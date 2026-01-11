@@ -194,6 +194,37 @@ export class AvailableCarsService {
     // Start with existing photos
     let updatedPhotos = [...existingCar.carPhotos];
 
+    // Handle photo reordering if specified
+    if (
+      updateAvailableCarDto.reorderedPhotoUrls &&
+      updateAvailableCarDto.reorderedPhotoUrls.length > 0
+    ) {
+      this.logger.log('Reordering photos');
+
+      // Validate that all provided URLs exist in the car's photos
+      const invalidUrls = updateAvailableCarDto.reorderedPhotoUrls.filter(
+        (url) => !existingCar.carPhotos.includes(url),
+      );
+
+      if (invalidUrls.length > 0) {
+        throw new BadRequestException(
+          `The following photo URLs do not belong to this car: ${invalidUrls.join(', ')}`,
+        );
+      }
+
+      // Validate that all car photos are included in the reorder
+      if (
+        updateAvailableCarDto.reorderedPhotoUrls.length !==
+        existingCar.carPhotos.length
+      ) {
+        throw new BadRequestException(
+          `All photos must be included in the reorder. Expected ${existingCar.carPhotos.length} photos, but received ${updateAvailableCarDto.reorderedPhotoUrls.length}`,
+        );
+      }
+
+      updatedPhotos = updateAvailableCarDto.reorderedPhotoUrls;
+    }
+
     // Delete old photos if specified (in parallel)
     if (
       updateAvailableCarDto.deletePhotoUrls &&
@@ -206,7 +237,7 @@ export class AvailableCarsService {
       const keysToDelete: string[] = [];
 
       for (const photoUrl of updateAvailableCarDto.deletePhotoUrls) {
-        if (existingCar.carPhotos.includes(photoUrl)) {
+        if (updatedPhotos.includes(photoUrl)) {
           const key = this.s3Service.extractKeyFromUrl(photoUrl);
           keysToDelete.push(key);
           updatedPhotos = updatedPhotos.filter((photo) => photo !== photoUrl);
@@ -245,8 +276,9 @@ export class AvailableCarsService {
     // Update the carPhotos array
     updateData.carPhotos = updatedPhotos;
 
-    // Remove deletePhotoUrls from updateData as it's not a schema field
+    // Remove helper fields from updateData as they're not schema fields
     delete updateData.deletePhotoUrls;
+    delete updateData.reorderedPhotoUrls;
 
     const updatedCar = await this.availableCarModel
       .findByIdAndUpdate(id, updateData, { new: true })

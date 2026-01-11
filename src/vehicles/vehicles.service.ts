@@ -204,6 +204,42 @@ export class VehiclesService {
     // Start with existing photos
     let updatedPhotos = [...(existingVehicle.vehiclePhotos ?? [])];
 
+    // Handle photo reordering if specified
+    if (
+      updateVehicleDto.reorderedPhotoUrls &&
+      updateVehicleDto.reorderedPhotoUrls.length > 0
+    ) {
+      this.logger.log('Reordering photos');
+
+      // Validate that vehicle has photos
+      if (!existingVehicle.vehiclePhotos || existingVehicle.vehiclePhotos.length === 0) {
+        throw new BadRequestException('Vehicle has no photos to reorder');
+      }
+
+      // Validate that all provided URLs exist in the vehicle's photos
+      const invalidUrls = updateVehicleDto.reorderedPhotoUrls.filter(
+        (url) => !existingVehicle.vehiclePhotos.includes(url),
+      );
+
+      if (invalidUrls.length > 0) {
+        throw new BadRequestException(
+          `The following photo URLs do not belong to this vehicle: ${invalidUrls.join(', ')}`,
+        );
+      }
+
+      // Validate that all vehicle photos are included in the reorder
+      if (
+        updateVehicleDto.reorderedPhotoUrls.length !==
+        existingVehicle.vehiclePhotos.length
+      ) {
+        throw new BadRequestException(
+          `All photos must be included in the reorder. Expected ${existingVehicle.vehiclePhotos.length} photos, but received ${updateVehicleDto.reorderedPhotoUrls.length}`,
+        );
+      }
+
+      updatedPhotos = updateVehicleDto.reorderedPhotoUrls;
+    }
+
     // Delete old photos if specified (in parallel)
     if (
       updateVehicleDto.deletePhotoUrls &&
@@ -245,6 +281,7 @@ export class VehiclesService {
 
     updateData.vehiclePhotos = updatedPhotos;
     delete updateData.deletePhotoUrls;
+    delete updateData.reorderedPhotoUrls;
 
     if (invoiceFile) {
       // Delete old invoice if it exists
