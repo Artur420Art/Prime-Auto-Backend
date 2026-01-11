@@ -5,6 +5,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import express, { json, urlencoded } from 'express';
 import { ConfigModule } from '@nestjs/config';
+import { LoggingInterceptor } from '../common/interceptors/logging.interceptor';
+import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 
 const server = express();
 let cachedServer;
@@ -45,6 +47,10 @@ async function createServer() {
         },
       }),
     );
+
+    app.useGlobalInterceptors(new LoggingInterceptor());
+    app.useGlobalInterceptors(new TransformInterceptor());
+
     const env = process.env.NODE_ENV || 'development';
     if (env === 'development' || env === 'stage' || process.env.VERCEL) {
       const config = new DocumentBuilder()
