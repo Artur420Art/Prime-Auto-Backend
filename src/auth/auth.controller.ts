@@ -28,14 +28,6 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  @Post('register-admin-super')
-  @ApiOperation({
-    summary: 'Create super admin (public endpoint for initial setup)',
-  })
-  async registerSuperAdmin(@Body() registerDto: RegisterDto) {
-    return this.authService.registerAdmin(registerDto);
-  }
-
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()

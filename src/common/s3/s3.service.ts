@@ -70,8 +70,10 @@ export class S3Service {
       const url = await this.getPresignedUrl(key, 604800);
       this.logger.log(`✅ File uploaded successfully with presigned URL`);
       return { url, key };
-    } catch (err) {
-      this.logger.error('Upload failed', err as any);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Upload failed: ${message}`, stack);
       throw err;
     }
   }
@@ -89,6 +91,24 @@ export class S3Service {
     return await getSignedUrl(this.s3Client, command, { expiresIn });
   }
 
+  getObject = async ({ key }: { key: string }) => {
+    const data = await this.s3Client.send(
+      new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      }),
+    );
+
+    return {
+      body: data.Body,
+      contentType: data.ContentType,
+      contentLength: data.ContentLength,
+      cacheControl: data.CacheControl,
+      eTag: data.ETag,
+      lastModified: data.LastModified,
+    };
+  };
+
   // Delete a file
   async delete(key: string): Promise<void> {
     this.logger.log(`Deleting file from S3: ${key}`);
@@ -99,8 +119,10 @@ export class S3Service {
           Key: key,
         }),
       );
-    } catch (err) {
-      this.logger.error('Delete failed', err as any);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Delete failed: ${message}`, stack);
       throw err;
     }
   }
@@ -115,8 +137,9 @@ export class S3Service {
         }),
       );
       return true;
-    } catch (err: any) {
-      const status = err?.$metadata?.httpStatusCode;
+    } catch (err: unknown) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } })
+        ?.$metadata?.httpStatusCode;
       if (status === 404 || status === 403) {
         return false;
       }
