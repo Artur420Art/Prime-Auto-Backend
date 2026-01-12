@@ -3,13 +3,16 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, FilterQuery } from 'mongoose';
 
 import { CityPrice } from './schemas/city-price.schema';
-import { UserCategoryAdjustment } from './schemas/user-category-adjustment.schema';
+import {
+  UserCategoryAdjustment,
+  AdjustedBy,
+} from './schemas/user-category-adjustment.schema';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
 import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
 import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
+import { AdminAdjustUserPriceDto } from './dto/admin-adjust-user-price.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @Injectable()
 export class ShippingsService {
@@ -22,13 +25,11 @@ export class ShippingsService {
     private userCategoryAdjustmentModel: Model<UserCategoryAdjustment>,
   ) {}
 
-  // ============================================
-  // CITY PRICE (Admin) - Base prices management
-  // ============================================
+  // ========================================
+  // CITY PRICE (Admin) - Base prices
+  // ========================================
 
-  async createCityPrice(
-    createCityPriceDto: CreateCityPriceDto,
-  ): Promise<CityPrice> {
+  async createCityPrice(createCityPriceDto: CreateCityPriceDto) {
     this.logger.log(
       `Creating city price: city ${createCityPriceDto.city}, category: ${createCityPriceDto.category}`,
     );
@@ -52,7 +53,6 @@ export class ShippingsService {
     );
 
     const query: FilterQuery<CityPrice> = {};
-
     if (search) {
       query.$or = [
         { city: { $regex: search, $options: 'i' } },
@@ -61,7 +61,6 @@ export class ShippingsService {
     }
 
     const skip = (page - 1) * limit;
-
     const [data, totalItems] = await Promise.all([
       this.cityPriceModel
         .find(query)
@@ -112,7 +111,7 @@ export class ShippingsService {
     city?: string;
     category?: string;
     updateDto: UpdateCityPriceDto;
-  }): Promise<CityPrice> {
+  }) {
     this.logger.log(
       `Updating city price for city: ${city}, category: ${category}`,
     );
@@ -132,9 +131,6 @@ export class ShippingsService {
       ]
         .filter(Boolean)
         .join(' and ');
-      this.logger.warn(
-        `City price not found for ${filters || 'given filters'}`,
-      );
       throw new NotFoundException(
         `City price not found for ${filters || 'given filters'}`,
       );
@@ -146,14 +142,15 @@ export class ShippingsService {
     this.logger.log(`Removing city price with ID ${id}`);
     const result = await this.cityPriceModel.findByIdAndDelete(id).exec();
     if (!result) {
-      this.logger.warn(`City price with ID ${id} not found for removal`);
       throw new NotFoundException(`City price with ID "${id}" not found`);
     }
   }
 
-  async adjustBasePrice(
-    adjustDto: AdjustBasePriceDto,
-  ): Promise<{ modifiedCount: number }> {
+  // ========================================
+  // ADMIN - Adjust base price (all users)
+  // ========================================
+
+  async adjustBasePrice(adjustDto: AdjustBasePriceDto) {
     const { category, city, adjustment_amount } = adjustDto;
     this.logger.log(
       `Admin adjusting base price by ${adjustment_amount} for category: ${category}, city: ${city || 'all cities'}`,
@@ -165,7 +162,13 @@ export class ShippingsService {
     }
 
     const result = await this.cityPriceModel
-      .updateMany(query, { $inc: { base_price: adjustment_amount } })
+      .updateMany(query, {
+        $inc: { base_price: adjustment_amount },
+        $set: {
+          last_adjustment_amount: adjustment_amount,
+          last_adjustment_date: new Date(),
+        },
+      })
       .exec();
 
     if (result.matchedCount === 0) {
@@ -182,23 +185,17 @@ export class ShippingsService {
     return { modifiedCount: result.modifiedCount };
   }
 
-  // ============================================
-  // USER ADJUSTMENTS - Per category adjustments
-  // ============================================
+  // ========================================
+  // ADMIN - Adjust specific user's price
+  // ========================================
 
-  async adjustUserPrices({
-    adjustDto,
-    userId,
-  }: {
-    adjustDto: AdjustUserPricesDto;
-    userId: string;
-  }): Promise<UserCategoryAdjustment> {
-    const { category, adjustment_amount } = adjustDto;
+  async adminAdjustUserPrice(adjustDto: AdminAdjustUserPriceDto) {
+    const { userId, category, adjustment_amount } = adjustDto;
     this.logger.log(
-      `User ${userId} adjusting prices for category ${category} by ${adjustment_amount}`,
+      `Admin adjusting price for user ${userId}, category: ${category} by ${adjustment_amount}`,
     );
 
-    // Get existing category adjustment to track history
+    // Get existing adjustment to track history
     const existingAdjustment = await this.userCategoryAdjustmentModel
       .findOne({ user: userId, category })
       .lean()
@@ -207,9 +204,9 @@ export class ShippingsService {
     const currentAdjustment = existingAdjustment?.adjustment_amount ?? 0;
     const isNewAdjustment = adjustment_amount !== currentAdjustment;
 
-    // Build update object - only update last_adjustment if value actually changed
     const updateFields: Record<string, unknown> = {
       adjustment_amount,
+      adjusted_by: AdjustedBy.ADMIN,
     };
 
     if (isNewAdjustment) {
@@ -217,7 +214,53 @@ export class ShippingsService {
       updateFields.last_adjustment_date = new Date();
     }
 
-    // Store/update category adjustment
+    const result = await this.userCategoryAdjustmentModel
+      .findOneAndUpdate(
+        { user: userId, category },
+        { $set: updateFields },
+        { upsert: true, new: true },
+      )
+      .populate('user', 'firstName lastName email')
+      .exec();
+
+    return result;
+  }
+
+  // ========================================
+  // USER - Adjust their own price
+  // ========================================
+
+  async adjustUserPrices({
+    adjustDto,
+    userId,
+  }: {
+    adjustDto: AdjustUserPricesDto;
+    userId: string;
+  }) {
+    const { category, adjustment_amount } = adjustDto;
+    this.logger.log(
+      `User ${userId} adjusting prices for category ${category} by ${adjustment_amount}`,
+    );
+
+    // Get existing adjustment to track history
+    const existingAdjustment = await this.userCategoryAdjustmentModel
+      .findOne({ user: userId, category })
+      .lean()
+      .exec();
+
+    const currentAdjustment = existingAdjustment?.adjustment_amount ?? 0;
+    const isNewAdjustment = adjustment_amount !== currentAdjustment;
+
+    const updateFields: Record<string, unknown> = {
+      adjustment_amount,
+      adjusted_by: AdjustedBy.USER,
+    };
+
+    if (isNewAdjustment) {
+      updateFields.last_adjustment_amount = currentAdjustment;
+      updateFields.last_adjustment_date = new Date();
+    }
+
     const result = await this.userCategoryAdjustmentModel
       .findOneAndUpdate(
         { user: userId, category },
@@ -229,19 +272,19 @@ export class ShippingsService {
     return result;
   }
 
-  async getUserAdjustmentAmount({
+  // ========================================
+  // GET ADJUSTMENTS
+  // ========================================
+
+  async getUserAdjustment({
     userId,
     category,
   }: {
     userId: string;
     category?: string;
-  }): Promise<{
-    adjustment_amount: number;
-    last_adjustment_amount: number | null;
-    last_adjustment_date: Date | null;
-  }> {
+  }) {
     this.logger.log(
-      `Getting adjustment amount for user ${userId}, category: ${category || 'any'}`,
+      `Getting adjustment for user ${userId}, category: ${category || 'any'}`,
     );
 
     const query: FilterQuery<UserCategoryAdjustment> = { user: userId };
@@ -249,23 +292,25 @@ export class ShippingsService {
       query.category = category;
     }
 
-    const categoryAdjustment = await this.userCategoryAdjustmentModel
+    const adjustment = await this.userCategoryAdjustmentModel
       .findOne(query)
       .lean()
       .exec();
 
-    if (!categoryAdjustment) {
+    if (!adjustment) {
       return {
         adjustment_amount: 0,
+        adjusted_by: null,
         last_adjustment_amount: null,
         last_adjustment_date: null,
       };
     }
 
     return {
-      adjustment_amount: categoryAdjustment.adjustment_amount || 0,
-      last_adjustment_amount: categoryAdjustment.last_adjustment_amount,
-      last_adjustment_date: categoryAdjustment.last_adjustment_date,
+      adjustment_amount: adjustment.adjustment_amount || 0,
+      adjusted_by: adjustment.adjusted_by,
+      last_adjustment_amount: adjustment.last_adjustment_amount,
+      last_adjustment_date: adjustment.last_adjustment_date,
     };
   }
 
@@ -277,9 +322,33 @@ export class ShippingsService {
       .exec();
   }
 
-  // ============================================
-  // USER PRICES - Calculate effective prices
-  // ============================================
+  // Admin: Get all adjustments for a specific user
+  async getAdjustmentsByUserId(userId: string) {
+    this.logger.log(`Admin getting adjustments for user ${userId}`);
+    return this.userCategoryAdjustmentModel
+      .find({ user: userId })
+      .populate('user', 'firstName lastName email')
+      .lean()
+      .exec();
+  }
+
+  // Admin: Get all user adjustments (all users)
+  async getAllAdjustments(category?: string) {
+    this.logger.log(`Admin getting all user adjustments`);
+    const query: FilterQuery<UserCategoryAdjustment> = {};
+    if (category) {
+      query.category = category;
+    }
+    return this.userCategoryAdjustmentModel
+      .find(query)
+      .populate('user', 'firstName lastName email')
+      .lean()
+      .exec();
+  }
+
+  // ========================================
+  // USER PRICES (calculated)
+  // ========================================
 
   async getUserPrices({
     userId,
@@ -289,20 +358,11 @@ export class ShippingsService {
     userId: string;
     category?: string;
     city?: string;
-  }): Promise<
-    Array<{
-      city: string;
-      category: string;
-      base_price: number;
-      adjustment_amount: number;
-      effective_price: number;
-    }>
-  > {
+  }) {
     this.logger.log(
       `Getting user prices for user ${userId}, category: ${category || 'all'}, city: ${city || 'all'}`,
     );
 
-    // Get base prices
     const priceQuery: FilterQuery<CityPrice> = {};
     if (category) priceQuery.category = category;
     if (city) priceQuery.city = new RegExp(`^${city}$`, 'i');
@@ -314,18 +374,29 @@ export class ShippingsService {
 
     // Create adjustment map for O(1) lookup
     const adjustmentMap = new Map(
-      userAdjustments.map((adj) => [adj.category, adj.adjustment_amount || 0]),
+      userAdjustments.map((adj) => [
+        adj.category,
+        {
+          adjustment_amount: adj.adjustment_amount || 0,
+          adjusted_by: adj.adjusted_by,
+        },
+      ]),
     );
 
-    // Calculate effective prices
     return cityPrices.map((cp) => {
-      const adjustment = adjustmentMap.get(cp.category) || 0;
+      const userAdj = adjustmentMap.get(cp.category) || {
+        adjustment_amount: 0,
+        adjusted_by: null,
+      };
       return {
         city: cp.city,
         category: cp.category,
         base_price: cp.base_price,
-        adjustment_amount: adjustment,
-        effective_price: cp.base_price + adjustment,
+        base_last_adjustment_amount: cp.last_adjustment_amount,
+        base_last_adjustment_date: cp.last_adjustment_date,
+        user_adjustment_amount: userAdj.adjustment_amount,
+        adjusted_by: userAdj.adjusted_by,
+        effective_price: cp.base_price + userAdj.adjustment_amount,
       };
     });
   }
@@ -338,21 +409,12 @@ export class ShippingsService {
     userId: string;
     category?: string;
     paginationQuery: PaginationQueryDto;
-  }): Promise<
-    PaginatedResponseDto<{
-      city: string;
-      category: string;
-      base_price: number;
-      adjustment_amount: number;
-      effective_price: number;
-    }>
-  > {
+  }) {
     const { page = 1, limit = 10, search } = paginationQuery;
     this.logger.log(
       `Getting paginated user prices for user ${userId}, category: ${category || 'all'}`,
     );
 
-    // Build query
     const priceQuery: FilterQuery<CityPrice> = {};
     if (category) priceQuery.category = category;
     if (search) {
@@ -376,20 +438,30 @@ export class ShippingsService {
       this.userCategoryAdjustmentModel.find({ user: userId }).lean().exec(),
     ]);
 
-    // Create adjustment map
     const adjustmentMap = new Map(
-      userAdjustments.map((adj) => [adj.category, adj.adjustment_amount || 0]),
+      userAdjustments.map((adj) => [
+        adj.category,
+        {
+          adjustment_amount: adj.adjustment_amount || 0,
+          adjusted_by: adj.adjusted_by,
+        },
+      ]),
     );
 
-    // Calculate effective prices
     const data = cityPrices.map((cp) => {
-      const adjustment = adjustmentMap.get(cp.category) || 0;
+      const userAdj = adjustmentMap.get(cp.category) || {
+        adjustment_amount: 0,
+        adjusted_by: null,
+      };
       return {
         city: cp.city,
         category: cp.category,
         base_price: cp.base_price,
-        adjustment_amount: adjustment,
-        effective_price: cp.base_price + adjustment,
+        base_last_adjustment_amount: cp.last_adjustment_amount,
+        base_last_adjustment_date: cp.last_adjustment_date,
+        user_adjustment_amount: userAdj.adjustment_amount,
+        adjusted_by: userAdj.adjusted_by,
+        effective_price: cp.base_price + userAdj.adjustment_amount,
       };
     });
 
@@ -408,28 +480,20 @@ export class ShippingsService {
     };
   }
 
-  async getEffectivePrice(
-    userId: string,
-    city: string,
-    category: string,
-  ): Promise<{
-    base_price: number;
-    adjustment_amount: number;
-    effective_price: number;
-    last_adjustment_amount: number | null;
-    last_adjustment_date: Date | null;
-  }> {
+  async getEffectivePrice(userId: string, city: string, category: string) {
     this.logger.log(
       `Getting effective price for user ${userId}, city: ${city}, category: ${category}`,
     );
 
-    const [cityPrice, userAdjustment] = await Promise.all([
-      this.cityPriceModel.findOne({ city, category }).lean().exec(),
-      this.userCategoryAdjustmentModel
-        .findOne({ user: userId, category })
-        .lean()
-        .exec(),
-    ]);
+    const cityPrice = await this.cityPriceModel
+      .findOne({ city: new RegExp(`^${city}$`, 'i'), category })
+      .lean()
+      .exec();
+
+    const userAdjustment = await this.userCategoryAdjustmentModel
+      .findOne({ user: userId, category })
+      .lean()
+      .exec();
 
     if (!cityPrice) {
       throw new NotFoundException(
@@ -442,10 +506,14 @@ export class ShippingsService {
 
     return {
       base_price: cityPrice.base_price,
-      adjustment_amount: adjustmentAmount,
+      base_last_adjustment_amount: cityPrice.last_adjustment_amount,
+      base_last_adjustment_date: cityPrice.last_adjustment_date,
+      user_adjustment_amount: adjustmentAmount,
+      adjusted_by: userAdjustment?.adjusted_by ?? null,
+      user_last_adjustment_amount:
+        userAdjustment?.last_adjustment_amount ?? null,
+      user_last_adjustment_date: userAdjustment?.last_adjustment_date ?? null,
       effective_price: effectivePrice,
-      last_adjustment_amount: userAdjustment?.last_adjustment_amount ?? null,
-      last_adjustment_date: userAdjustment?.last_adjustment_date ?? null,
     };
   }
 }

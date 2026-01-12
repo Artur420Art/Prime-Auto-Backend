@@ -16,9 +16,17 @@ export class CityPrice extends Document {
   @Prop({ required: true, enum: ShippingCategory })
   category: ShippingCategory;
 
-  @ApiProperty({ description: 'Base price from PDF (read-only)' })
+  @ApiProperty({ description: 'Base price' })
   @Prop({ required: true, type: Number, min: 0 })
   base_price: number;
+
+  @ApiProperty({ description: 'Last adjustment amount applied by admin' })
+  @Prop({ type: Number, default: null })
+  last_adjustment_amount: number;
+
+  @ApiProperty({ description: 'Date when the last adjustment was made' })
+  @Prop({ type: Date, default: null })
+  last_adjustment_date: Date;
 }
 
 export const CityPriceSchema = SchemaFactory.createForClass(CityPrice);

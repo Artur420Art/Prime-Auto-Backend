@@ -24,6 +24,7 @@ import { CreateCityPriceDto } from './dto/create-shipping.dto';
 import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
 import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
+import { AdminAdjustUserPriceDto } from './dto/admin-adjust-user-price.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -31,7 +32,6 @@ import { Role } from '../users/enums/role.enum';
 import { CityPrice } from './schemas/city-price.schema';
 import { UserCategoryAdjustment } from './schemas/user-category-adjustment.schema';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @ApiTags('shippings')
 @ApiBearerAuth()
@@ -39,6 +39,10 @@ import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ShippingsController {
   constructor(private readonly shippingsService: ShippingsService) {}
+
+  // ========================================
+  // ADMIN - City Price Management
+  // ========================================
 
   @Post('')
   @Roles(Role.ADMIN)
@@ -65,7 +69,6 @@ export class ShippingsController {
 
   @Get('paginated')
   @ApiOperation({ summary: 'Get paginated city prices (base prices)' })
-  @ApiOkResponse({ type: PaginatedResponseDto<CityPrice> })
   getAllCityPricesPaginated(@Query() paginationQuery: PaginationQueryDto) {
     return this.shippingsService.getAllCityPricesPaginated(paginationQuery);
   }
@@ -96,28 +99,65 @@ export class ShippingsController {
     return this.shippingsService.removeCityPrice(id);
   }
 
-  @Patch('adjust-base-price')
+  // ========================================
+  // ADMIN - Adjust Base Price (all users)
+  // ========================================
+
+  @Patch('admin/adjust-base-price')
   @Roles(Role.ADMIN)
   @ApiOperation({
     summary:
-      'Adjust base price by amount for a category (Admin only). If city not provided, applies to all cities.',
+      'Admin adjusts base price for all (stores last_adjustment_amount). If city not provided, applies to all cities in category.',
   })
   @ApiOkResponse({
     schema: {
       type: 'object',
-      properties: {
-        modifiedCount: { type: 'number' },
-      },
+      properties: { modifiedCount: { type: 'number' } },
     },
   })
   adjustBasePrice(@Body() adjustBasePriceDto: AdjustBasePriceDto) {
     return this.shippingsService.adjustBasePrice(adjustBasePriceDto);
   }
 
-  @Patch('user/adjust-prices')
+  // ========================================
+  // ADMIN - Adjust Specific User's Price
+  // ========================================
+
+  @Patch('admin/adjust-user-price')
+  @Roles(Role.ADMIN)
   @ApiOperation({
     summary:
-      'Set user adjustment for a category (+ to increase, - to decrease)',
+      'Admin adjusts price for a specific user (stores adjustment for that user)',
+  })
+  @ApiOkResponse({ type: UserCategoryAdjustment })
+  adminAdjustUserPrice(@Body() adjustDto: AdminAdjustUserPriceDto) {
+    return this.shippingsService.adminAdjustUserPrice(adjustDto);
+  }
+
+  @Get('admin/adjustments')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Admin gets all user adjustments' })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiOkResponse({ type: [UserCategoryAdjustment] })
+  getAllAdjustments(@Query('category') category?: string) {
+    return this.shippingsService.getAllAdjustments(category);
+  }
+
+  @Get('admin/adjustments/:userId')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Admin gets adjustments for a specific user' })
+  @ApiOkResponse({ type: [UserCategoryAdjustment] })
+  getAdjustmentsByUserId(@Param('userId') userId: string) {
+    return this.shippingsService.getAdjustmentsByUserId(userId);
+  }
+
+  // ========================================
+  // USER - Adjust Own Price
+  // ========================================
+
+  @Patch('user/adjust-prices')
+  @ApiOperation({
+    summary: 'User adjusts their own price for a category (stores adjustment)',
   })
   @ApiOkResponse({ type: UserCategoryAdjustment })
   adjustUserPrices(@Body() adjustDto: AdjustUserPricesDto, @Request() req) {
@@ -139,6 +179,11 @@ export class ShippingsController {
       type: 'object',
       properties: {
         adjustment_amount: { type: 'number' },
+        adjusted_by: {
+          type: 'string',
+          enum: ['user', 'admin'],
+          nullable: true,
+        },
         last_adjustment_amount: { type: 'number', nullable: true },
         last_adjustment_date: {
           type: 'string',
@@ -149,7 +194,7 @@ export class ShippingsController {
     },
   })
   getUserAdjustment(@Request() req, @Query('category') category?: string) {
-    return this.shippingsService.getUserAdjustmentAmount({
+    return this.shippingsService.getUserAdjustment({
       userId: req.user.userId,
       category,
     });
@@ -162,13 +207,13 @@ export class ShippingsController {
     return this.shippingsService.getAllUserAdjustments(req.user.userId);
   }
 
-  // ============================================
-  // USER PRICES ENDPOINTS (calculated)
-  // ============================================
+  // ========================================
+  // USER - Get Calculated Prices
+  // ========================================
 
   @Get('user/prices')
   @ApiOperation({
-    summary: 'Get all effective prices for user (base_price + adjustment)',
+    summary: 'Get all effective prices for user (base_price + user_adjustment)',
   })
   @ApiQuery({ name: 'category', required: false, type: String })
   @ApiQuery({ name: 'city', required: false, type: String })
@@ -181,7 +226,18 @@ export class ShippingsController {
           city: { type: 'string' },
           category: { type: 'string' },
           base_price: { type: 'number' },
-          adjustment_amount: { type: 'number' },
+          base_last_adjustment_amount: { type: 'number', nullable: true },
+          base_last_adjustment_date: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+          },
+          user_adjustment_amount: { type: 'number' },
+          adjusted_by: {
+            type: 'string',
+            enum: ['user', 'admin'],
+            nullable: true,
+          },
           effective_price: { type: 'number' },
         },
       },
@@ -202,37 +258,6 @@ export class ShippingsController {
   @Get('user/prices/paginated')
   @ApiOperation({ summary: 'Get paginated effective prices for user' })
   @ApiQuery({ name: 'category', required: false, type: String })
-  @ApiOkResponse({
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              city: { type: 'string' },
-              category: { type: 'string' },
-              base_price: { type: 'number' },
-              adjustment_amount: { type: 'number' },
-              effective_price: { type: 'number' },
-            },
-          },
-        },
-        meta: {
-          type: 'object',
-          properties: {
-            currentPage: { type: 'number' },
-            itemsPerPage: { type: 'number' },
-            totalItems: { type: 'number' },
-            totalPages: { type: 'number' },
-            hasNextPage: { type: 'boolean' },
-            hasPreviousPage: { type: 'boolean' },
-          },
-        },
-      },
-    },
-  })
   getUserPricesPaginated(
     @Request() req,
     @Query() paginationQuery: PaginationQueryDto,
@@ -254,14 +279,25 @@ export class ShippingsController {
       type: 'object',
       properties: {
         base_price: { type: 'number' },
-        adjustment_amount: { type: 'number' },
-        effective_price: { type: 'number' },
-        last_adjustment_amount: { type: 'number', nullable: true },
-        last_adjustment_date: {
+        base_last_adjustment_amount: { type: 'number', nullable: true },
+        base_last_adjustment_date: {
           type: 'string',
           format: 'date-time',
           nullable: true,
         },
+        user_adjustment_amount: { type: 'number' },
+        adjusted_by: {
+          type: 'string',
+          enum: ['user', 'admin'],
+          nullable: true,
+        },
+        user_last_adjustment_amount: { type: 'number', nullable: true },
+        user_last_adjustment_date: {
+          type: 'string',
+          format: 'date-time',
+          nullable: true,
+        },
+        effective_price: { type: 'number' },
       },
     },
   })

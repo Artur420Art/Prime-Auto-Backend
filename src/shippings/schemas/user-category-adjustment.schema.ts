@@ -5,6 +5,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { User } from '../../users/schemas/user.schema';
 import { ShippingCategory } from '../enums/category.enum';
 
+export enum AdjustedBy {
+  USER = 'user',
+  ADMIN = 'admin',
+}
+
 @Schema({ timestamps: true, collection: 'user_category_adjustments' })
 export class UserCategoryAdjustment extends Document {
   @ApiProperty({ type: String })
@@ -23,6 +28,13 @@ export class UserCategoryAdjustment extends Document {
   })
   @Prop({ type: Number, default: 0 })
   adjustment_amount: number;
+
+  @ApiProperty({
+    enum: AdjustedBy,
+    description: 'Who made the adjustment (user or admin)',
+  })
+  @Prop({ type: String, enum: AdjustedBy, default: AdjustedBy.USER })
+  adjusted_by: AdjustedBy;
 
   @ApiProperty({
     description: 'Previous adjustment amount (for tracking history)',
