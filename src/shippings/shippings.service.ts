@@ -287,22 +287,34 @@ export class ShippingsService {
     category,
     updateDto,
   }: {
-    city: string;
-    category: string;
+    city?: string;
+    category?: string;
     updateDto: UpdateCityPriceDto;
   }): Promise<CityPrice> {
     this.logger.log(
       `Updating city price for city: ${city}, category: ${category}`,
     );
+
+    const query: FilterQuery<CityPrice> = {};
+    if (city) query.city = new RegExp(`^${city}$`, 'i');
+    if (category) query.category = category;
+
     const cityPrice = await this.cityPriceModel
-      .findOneAndUpdate({ city, category }, updateDto, { new: true })
+      .findOneAndUpdate(query, updateDto, { new: true })
       .exec();
+
     if (!cityPrice) {
+      const filters = [
+        city && `city "${city}"`,
+        category && `category "${category}"`,
+      ]
+        .filter(Boolean)
+        .join(' and ');
       this.logger.warn(
-        `City price not found for city: ${city}, category: ${category}`,
+        `City price not found for ${filters || 'given filters'}`,
       );
       throw new NotFoundException(
-        `City price not found for city "${city}" and category "${category}"`,
+        `City price not found for ${filters || 'given filters'}`,
       );
     }
     return cityPrice;

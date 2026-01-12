@@ -70,16 +70,18 @@ export class ShippingsController {
     return this.shippingsService.getAllCityPricesPaginated(paginationQuery);
   }
 
-  @Patch('/:city/:category')
+  @Patch('')
   @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Update a city price by city and category (Admin only)',
   })
+  @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiQuery({ name: 'category', required: false, type: String })
   @ApiOkResponse({ type: CityPrice })
   updateCityPrice(
-    @Param('city') city: string,
-    @Param('category') category: string,
     @Body() updateCityPriceDto: UpdateCityPriceDto,
+    @Query('city') city?: string,
+    @Query('category') category?: string,
   ) {
     return this.shippingsService.updateCityPrice({
       city,
