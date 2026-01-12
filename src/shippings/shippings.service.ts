@@ -9,6 +9,7 @@ import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
 import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
+import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
 import {
   calculateCurrentPrice,
   determinePriceSource,
@@ -327,6 +328,37 @@ export class ShippingsService {
       this.logger.warn(`City price with ID ${id} not found for removal`);
       throw new NotFoundException(`City price with ID "${id}" not found`);
     }
+  }
+
+  async adjustBasePrice(
+    adjustDto: AdjustBasePriceDto,
+  ): Promise<{ modifiedCount: number }> {
+    const { category, city, adjustment_amount } = adjustDto;
+    this.logger.log(
+      `Admin adjusting base price by ${adjustment_amount} for category: ${category}, city: ${city || 'all cities'}`,
+    );
+
+    const query: FilterQuery<CityPrice> = { category };
+    if (city) {
+      query.city = new RegExp(`^${city}$`, 'i');
+    }
+
+    const result = await this.cityPriceModel
+      .updateMany(query, { $inc: { base_price: adjustment_amount } })
+      .exec();
+
+    if (result.matchedCount === 0) {
+      const filterDesc = city
+        ? `city "${city}" and category "${category}"`
+        : `category "${category}"`;
+      throw new NotFoundException(`No city prices found for ${filterDesc}`);
+    }
+
+    this.logger.log(
+      `Adjusted base price for ${result.modifiedCount} city prices`,
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 
   async updateDefaultPrice(

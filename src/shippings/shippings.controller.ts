@@ -16,6 +16,7 @@ import { UpdateCityPriceDto } from './dto/update-city-price.dto';
 import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
 import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
+import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -96,6 +97,24 @@ export class ShippingsController {
   @ApiOkResponse({ description: 'City price deleted successfully' })
   removeCityPrice(@Param('id') id: string) {
     return this.shippingsService.removeCityPrice(id);
+  }
+
+  @Patch('adjust-base-price')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary:
+      'Adjust base price by amount for a category (Admin only). If city not provided, applies to all cities.',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        modifiedCount: { type: 'number' },
+      },
+    },
+  })
+  adjustBasePrice(@Body() adjustBasePriceDto: AdjustBasePriceDto) {
+    return this.shippingsService.adjustBasePrice(adjustBasePriceDto);
   }
 
   @Get('user-shippings')
