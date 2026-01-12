@@ -37,9 +37,6 @@ export class AuthController {
     return this.authService.registerClient(registerDto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @ApiBearerAuth()
   @Post('register-client')
   @ApiOperation({ summary: 'Admin registers a new client' })
   async registerAdmin(@Body() registerDto: RegisterDto) {
