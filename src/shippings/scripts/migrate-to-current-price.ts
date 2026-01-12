@@ -3,7 +3,7 @@ import { Model } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
 
 import { AppModule } from '../../app.module';
-import { UserShipping } from '../schemas/shipping.schema';
+import { UserCategoryAdjustment } from '../schemas/user-category-adjustment.schema';
 
 /**
  * Migration script to update UserShipping schema
@@ -13,8 +13,8 @@ import { UserShipping } from '../schemas/shipping.schema';
  */
 const migrateShippingPrices = async () => {
   const app = await NestFactory.createApplicationContext(AppModule);
-  const userShippingModel = app.get<Model<UserShipping>>(
-    getModelToken(UserShipping.name),
+  const userShippingModel = app.get<Model<UserCategoryAdjustment>>(
+    getModelToken(UserCategoryAdjustment.name),
   );
 
   console.log('Starting migration: final_price → current_price');

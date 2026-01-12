@@ -21,8 +21,7 @@ export class AdjustBasePriceDto {
   city?: string;
 
   @ApiProperty({
-    description:
-      'Amount to adjust base price (+ to increase, - to decrease)',
+    description: 'Amount to adjust base price (+ to increase, - to decrease)',
     example: 50,
   })
   @IsNumber()

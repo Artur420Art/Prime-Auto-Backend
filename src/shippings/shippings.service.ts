@@ -1,19 +1,13 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, FilterQuery, AnyBulkWriteOperation } from 'mongoose';
+import { Model, FilterQuery } from 'mongoose';
 
-import { UserShipping } from './schemas/shipping.schema';
 import { CityPrice } from './schemas/city-price.schema';
+import { UserCategoryAdjustment } from './schemas/user-category-adjustment.schema';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
 import { UpdateCityPriceDto } from './dto/update-city-price.dto';
-import { UpdateDefaultPriceDto } from './dto/update-default-price.dto';
-import { BulkUpdateDefaultPriceDto } from './dto/bulk-update-default-price.dto';
 import { AdjustUserPricesDto } from './dto/update-price.dto';
 import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
-import {
-  calculateCurrentPrice,
-  determinePriceSource,
-} from './utils/price-calculator.util';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
@@ -22,11 +16,15 @@ export class ShippingsService {
   private readonly logger = new Logger(ShippingsService.name);
 
   constructor(
-    @InjectModel(UserShipping.name)
-    private userShippingModel: Model<UserShipping>,
     @InjectModel(CityPrice.name)
     private cityPriceModel: Model<CityPrice>,
+    @InjectModel(UserCategoryAdjustment.name)
+    private userCategoryAdjustmentModel: Model<UserCategoryAdjustment>,
   ) {}
+
+  // ============================================
+  // CITY PRICE (Admin) - Base prices management
+  // ============================================
 
   async createCityPrice(
     createCityPriceDto: CreateCityPriceDto,
@@ -42,14 +40,12 @@ export class ShippingsService {
     return createdCityPrice.save();
   }
 
-  async getAllCityPrices(): Promise<CityPrice[]> {
+  async getAllCityPrices() {
     this.logger.log('Fetching all city prices');
-    return this.cityPriceModel.find().lean().exec() as any;
+    return this.cityPriceModel.find().lean().exec();
   }
 
-  async getAllCityPricesPaginated(
-    paginationQuery: PaginationQueryDto,
-  ): Promise<PaginatedResponseDto<CityPrice>> {
+  async getAllCityPricesPaginated(paginationQuery: PaginationQueryDto) {
     const { page = 1, limit = 10, search } = paginationQuery;
     this.logger.log(
       `Fetching city prices with pagination - page: ${page}, limit: ${limit}`,
@@ -73,7 +69,7 @@ export class ShippingsService {
         .limit(limit)
         .sort({ city: 1 })
         .lean()
-        .exec() as any,
+        .exec(),
       this.cityPriceModel.countDocuments(query).exec(),
     ]);
 
@@ -98,189 +94,14 @@ export class ShippingsService {
   }: {
     city?: string;
     category?: string;
-  }): Promise<CityPrice[]> {
+  }) {
     this.logger.log(
       `Fetching city prices with filters: city=${city}, category=${category}`,
     );
     const query: FilterQuery<CityPrice> = {};
     if (city) query.city = new RegExp(`^${city}$`, 'i');
     if (category) query.category = category;
-    return this.cityPriceModel.find(query).lean().exec() as any;
-  }
-
-  async findAllUserShippings(user: {
-    userId: string;
-    roles: string[];
-  }): Promise<UserShipping[]> {
-    this.logger.log(
-      `Fetching user shippings for user: ${user.userId}, roles: ${user.roles}`,
-    );
-
-    const query: FilterQuery<UserShipping> = {};
-
-    if (!user.roles.includes('admin')) {
-      query.user = user.userId;
-      await this.ensureUserShippingsExist(user.userId);
-    }
-
-    return this.userShippingModel
-      .find(query)
-      .populate('user', 'firstName lastName email customerId')
-      .exec();
-  }
-
-  async findAllUserShippingsPaginated({
-    user,
-    paginationQuery,
-  }: {
-    user: { userId: string; roles: string[] };
-    paginationQuery: PaginationQueryDto;
-  }): Promise<PaginatedResponseDto<UserShipping>> {
-    const { page = 1, limit = 10, search } = paginationQuery;
-    this.logger.log(
-      `Fetching user shippings with pagination - page: ${page}, limit: ${limit}, user: ${user.userId}`,
-    );
-
-    const query: FilterQuery<UserShipping> = {};
-
-    if (!user.roles.includes('admin')) {
-      query.user = user.userId;
-      await this.ensureUserShippingsExist(user.userId);
-    }
-
-    if (search) {
-      query.$or = [
-        { city: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    const skip = (page - 1) * limit;
-
-    const [data, totalItems] = await Promise.all([
-      this.userShippingModel
-        .find(query)
-        .populate('user', 'firstName lastName email customerId')
-        .skip(skip)
-        .limit(limit)
-        .sort({ city: 1 })
-        .lean()
-        .exec() as any,
-      this.userShippingModel.countDocuments(query).exec(),
-    ]);
-
-    const totalPages = Math.ceil(totalItems / limit);
-
-    return {
-      data,
-      meta: {
-        currentPage: page,
-        itemsPerPage: limit,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      },
-    };
-  }
-
-  private async ensureUserShippingsExist(userId: string): Promise<void> {
-    const existingCount = await this.userShippingModel
-      .countDocuments({ user: userId })
-      .exec();
-
-    if (existingCount === 0) {
-      this.logger.log(
-        `Initializing user shippings with base prices for user ${userId}`,
-      );
-
-      const cityPrices = await this.cityPriceModel.find().lean().exec();
-
-      if (cityPrices.length > 0) {
-        const userShippings = cityPrices.map((cp) => ({
-          user: userId,
-          city: cp.city,
-          category: cp.category,
-          default_price: cp.base_price,
-          price_adjustment: 0,
-          last_adjustment_amount: null,
-          last_adjustment_date: null,
-          current_price: cp.base_price,
-        }));
-
-        await this.userShippingModel.insertMany(userShippings);
-      }
-    }
-  }
-
-  async findUserShippingsByCity(
-    city: string,
-    user: { userId: string; roles: string[] },
-  ): Promise<UserShipping[]> {
-    this.logger.log(
-      `Fetching user shippings for city: ${city}, user: ${user.userId}, roles: ${user.roles}`,
-    );
-
-    const query: FilterQuery<UserShipping> = {
-      city: new RegExp(`^${city}$`, 'i'),
-    };
-
-    if (!user.roles.includes('admin')) {
-      query.user = user.userId;
-    }
-
-    return this.userShippingModel
-      .find(query)
-      .populate('user', 'firstName lastName email customerId')
-      .lean()
-      .exec() as any;
-  }
-
-  async findUserShippingsByCityAndCategory(
-    city: string,
-    category: string,
-    user: { userId: string; roles: string[] },
-  ): Promise<UserShipping[]> {
-    this.logger.log(
-      `Fetching user shippings for city: ${city}, category: ${category}, user: ${user.userId}, roles: ${user.roles}`,
-    );
-
-    const query: FilterQuery<UserShipping> = {
-      city: new RegExp(`^${city}$`, 'i'),
-      category,
-    };
-
-    if (!user.roles.includes('admin')) {
-      query.user = user.userId;
-    }
-
-    return this.userShippingModel
-      .find(query)
-      .populate('user', 'firstName lastName email customerId')
-      .lean()
-      .exec() as any;
-  }
-
-  async findOneUserShipping(id: string): Promise<UserShipping> {
-    this.logger.log(`Fetching user shipping with ID ${id}`);
-    const shipping = await this.userShippingModel
-      .findById(id)
-      .populate('user', 'email firstName lastName')
-      .exec();
-    if (!shipping) {
-      this.logger.warn(`User shipping with ID ${id} not found`);
-      throw new NotFoundException(`User shipping with ID "${id}" not found`);
-    }
-    return shipping;
-  }
-
-  async removeUserShipping(id: string): Promise<void> {
-    this.logger.log(`Removing user shipping with ID ${id}`);
-    const result = await this.userShippingModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      this.logger.warn(`User shipping with ID ${id} not found for removal`);
-      throw new NotFoundException(`User shipping with ID "${id}" not found`);
-    }
+    return this.cityPriceModel.find(query).lean().exec();
   }
 
   async updateCityPrice({
@@ -361,134 +182,9 @@ export class ShippingsService {
     return { modifiedCount: result.modifiedCount };
   }
 
-  async updateDefaultPrice(
-    updateDto: UpdateDefaultPriceDto,
-  ): Promise<UserShipping> {
-    this.logger.log(
-      `Admin updating default_price for user ${updateDto.userId}, city ${updateDto.city}, category ${updateDto.category}`,
-    );
-
-    const cityPrice = await this.cityPriceModel
-      .findOne({ city: updateDto.city, category: updateDto.category })
-      .exec();
-
-    if (!cityPrice) {
-      throw new NotFoundException(
-        `Base city price not found for city ${updateDto.city} and category ${updateDto.category}`,
-      );
-    }
-
-    const existingShipping = await this.userShippingModel
-      .findOne({
-        user: updateDto.userId,
-        city: updateDto.city,
-        category: updateDto.category,
-      })
-      .exec();
-
-    const priceAdjustment = existingShipping?.price_adjustment || 0;
-    const currentPrice = calculateCurrentPrice({
-      defaultPrice: updateDto.default_price,
-      adjustment: priceAdjustment,
-    });
-
-    const shipping = await this.userShippingModel
-      .findOneAndUpdate(
-        {
-          user: updateDto.userId,
-          city: updateDto.city,
-          category: updateDto.category,
-        },
-        {
-          default_price: updateDto.default_price,
-          current_price: currentPrice,
-          price_adjustment: priceAdjustment,
-        },
-        { new: true, upsert: true, setDefaultsOnInsert: true },
-      )
-      .exec();
-
-    return shipping;
-  }
-
-  async bulkUpdateDefaultPrice({
-    updateDto,
-    userId,
-  }: {
-    updateDto: BulkUpdateDefaultPriceDto;
-    userId?: string;
-  }): Promise<{ modifiedCount: number }> {
-    this.logger.log(
-      `Admin bulk updating default_price: city=${updateDto.city}, category=${updateDto.category}, userId=${userId}`,
-    );
-
-    const cityPriceQuery: FilterQuery<CityPrice> = {};
-    if (updateDto.city) cityPriceQuery.city = updateDto.city;
-    if (updateDto.category) cityPriceQuery.category = updateDto.category;
-
-    const userShippingQuery: FilterQuery<UserShipping> = {};
-    if (userId) userShippingQuery.user = userId;
-    if (updateDto.city) userShippingQuery.city = updateDto.city;
-    if (updateDto.category) userShippingQuery.category = updateDto.category;
-
-    const [cityPrices, existingShippings] = await Promise.all([
-      this.cityPriceModel.find(cityPriceQuery).lean().exec(),
-      this.userShippingModel.find(userShippingQuery).lean().exec(),
-    ]);
-
-    if (cityPrices.length === 0) {
-      throw new NotFoundException(
-        'No matching city prices found for the given filters',
-      );
-    }
-
-    const updates: AnyBulkWriteOperation<UserShipping>[] = [];
-    for (const cityPrice of cityPrices) {
-      const filter: FilterQuery<UserShipping> = {
-        city: cityPrice.city,
-        category: cityPrice.category,
-      };
-      if (userId) filter.user = userId;
-
-      const existing = existingShippings.find(
-        (s) =>
-          s.city === cityPrice.city &&
-          s.category === cityPrice.category &&
-          (!userId || s.user.toString() === userId),
-      );
-
-      const priceAdjustment = existing?.price_adjustment || 0;
-      const currentPrice = calculateCurrentPrice({
-        defaultPrice: updateDto.default_price,
-        adjustment: priceAdjustment,
-      });
-
-      updates.push({
-        updateMany: {
-          filter,
-          update: {
-            $set: {
-              default_price: updateDto.default_price,
-              current_price: currentPrice,
-            },
-            $setOnInsert: {
-              city: cityPrice.city,
-              category: cityPrice.category,
-              price_adjustment: 0,
-            },
-          },
-          upsert: true,
-        },
-      });
-    }
-
-    if (updates.length > 0) {
-      const result = await this.userShippingModel.bulkWrite(updates);
-      return { modifiedCount: result.modifiedCount + result.upsertedCount };
-    }
-
-    return { modifiedCount: 0 };
-  }
+  // ============================================
+  // USER ADJUSTMENTS - Per category adjustments
+  // ============================================
 
   async adjustUserPrices({
     adjustDto,
@@ -496,71 +192,220 @@ export class ShippingsService {
   }: {
     adjustDto: AdjustUserPricesDto;
     userId: string;
-  }): Promise<{ modifiedCount: number }> {
+  }): Promise<UserCategoryAdjustment> {
+    const { category, adjustment_amount } = adjustDto;
     this.logger.log(
-      `User ${userId} adjusting all prices by ${adjustDto.adjustment_amount}`,
+      `User ${userId} adjusting prices for category ${category} by ${adjustment_amount}`,
     );
 
-    const [cityPrices, existingUserShippings] = await Promise.all([
-      this.cityPriceModel.find().lean().exec(),
-      this.userShippingModel.find({ user: userId }).lean().exec(),
+    // Get existing category adjustment to track history
+    const existingAdjustment = await this.userCategoryAdjustmentModel
+      .findOne({ user: userId, category })
+      .lean()
+      .exec();
+
+    const currentAdjustment = existingAdjustment?.adjustment_amount ?? 0;
+    const isNewAdjustment = adjustment_amount !== currentAdjustment;
+
+    // Build update object - only update last_adjustment if value actually changed
+    const updateFields: Record<string, unknown> = {
+      adjustment_amount,
+    };
+
+    if (isNewAdjustment) {
+      updateFields.last_adjustment_amount = currentAdjustment;
+      updateFields.last_adjustment_date = new Date();
+    }
+
+    // Store/update category adjustment
+    const result = await this.userCategoryAdjustmentModel
+      .findOneAndUpdate(
+        { user: userId, category },
+        { $set: updateFields },
+        { upsert: true, new: true },
+      )
+      .exec();
+
+    return result;
+  }
+
+  async getUserAdjustmentAmount({
+    userId,
+    category,
+  }: {
+    userId: string;
+    category?: string;
+  }): Promise<{
+    adjustment_amount: number;
+    last_adjustment_amount: number | null;
+    last_adjustment_date: Date | null;
+  }> {
+    this.logger.log(
+      `Getting adjustment amount for user ${userId}, category: ${category || 'any'}`,
+    );
+
+    const query: FilterQuery<UserCategoryAdjustment> = { user: userId };
+    if (category) {
+      query.category = category;
+    }
+
+    const categoryAdjustment = await this.userCategoryAdjustmentModel
+      .findOne(query)
+      .lean()
+      .exec();
+
+    if (!categoryAdjustment) {
+      return {
+        adjustment_amount: 0,
+        last_adjustment_amount: null,
+        last_adjustment_date: null,
+      };
+    }
+
+    return {
+      adjustment_amount: categoryAdjustment.adjustment_amount || 0,
+      last_adjustment_amount: categoryAdjustment.last_adjustment_amount,
+      last_adjustment_date: categoryAdjustment.last_adjustment_date,
+    };
+  }
+
+  async getAllUserAdjustments(userId: string) {
+    this.logger.log(`Getting all adjustments for user ${userId}`);
+    return this.userCategoryAdjustmentModel
+      .find({ user: userId })
+      .lean()
+      .exec();
+  }
+
+  // ============================================
+  // USER PRICES - Calculate effective prices
+  // ============================================
+
+  async getUserPrices({
+    userId,
+    category,
+    city,
+  }: {
+    userId: string;
+    category?: string;
+    city?: string;
+  }): Promise<
+    Array<{
+      city: string;
+      category: string;
+      base_price: number;
+      adjustment_amount: number;
+      effective_price: number;
+    }>
+  > {
+    this.logger.log(
+      `Getting user prices for user ${userId}, category: ${category || 'all'}, city: ${city || 'all'}`,
+    );
+
+    // Get base prices
+    const priceQuery: FilterQuery<CityPrice> = {};
+    if (category) priceQuery.category = category;
+    if (city) priceQuery.city = new RegExp(`^${city}$`, 'i');
+
+    const [cityPrices, userAdjustments] = await Promise.all([
+      this.cityPriceModel.find(priceQuery).lean().exec(),
+      this.userCategoryAdjustmentModel.find({ user: userId }).lean().exec(),
     ]);
 
-    if (cityPrices.length === 0) {
-      throw new NotFoundException('No city prices found in the system');
-    }
-
-    // Create a map for O(1) lookup instead of N queries
-    const existingShippingsMap = new Map(
-      existingUserShippings.map((s) => [`${s.city}-${s.category}`, s]),
+    // Create adjustment map for O(1) lookup
+    const adjustmentMap = new Map(
+      userAdjustments.map((adj) => [adj.category, adj.adjustment_amount || 0]),
     );
 
-    const updates: AnyBulkWriteOperation<UserShipping>[] = [];
-    for (const cityPrice of cityPrices) {
-      const key = `${cityPrice.city}-${cityPrice.category}`;
-      const existingUserShipping = existingShippingsMap.get(key);
+    // Calculate effective prices
+    return cityPrices.map((cp) => {
+      const adjustment = adjustmentMap.get(cp.category) || 0;
+      return {
+        city: cp.city,
+        category: cp.category,
+        base_price: cp.base_price,
+        adjustment_amount: adjustment,
+        effective_price: cp.base_price + adjustment,
+      };
+    });
+  }
 
-      const defaultPrice =
-        existingUserShipping?.default_price ?? cityPrice.base_price;
-      const oldAdjustment = existingUserShipping?.price_adjustment || 0;
-      const newAdjustment = adjustDto.adjustment_amount;
-      const currentPrice = calculateCurrentPrice({
-        defaultPrice,
-        adjustment: newAdjustment,
-      });
+  async getUserPricesPaginated({
+    userId,
+    category,
+    paginationQuery,
+  }: {
+    userId: string;
+    category?: string;
+    paginationQuery: PaginationQueryDto;
+  }): Promise<
+    PaginatedResponseDto<{
+      city: string;
+      category: string;
+      base_price: number;
+      adjustment_amount: number;
+      effective_price: number;
+    }>
+  > {
+    const { page = 1, limit = 10, search } = paginationQuery;
+    this.logger.log(
+      `Getting paginated user prices for user ${userId}, category: ${category || 'all'}`,
+    );
 
-      updates.push({
-        updateOne: {
-          filter: {
-            user: userId as any,
-            city: cityPrice.city,
-            category: cityPrice.category,
-          },
-          update: {
-            $set: {
-              price_adjustment: newAdjustment,
-              current_price: currentPrice,
-              last_adjustment_amount: oldAdjustment,
-              last_adjustment_date: new Date(),
-            },
-            $setOnInsert: {
-              user: userId as any,
-              city: cityPrice.city,
-              category: cityPrice.category,
-              default_price: cityPrice.base_price,
-            },
-          },
-          upsert: true,
-        },
-      });
+    // Build query
+    const priceQuery: FilterQuery<CityPrice> = {};
+    if (category) priceQuery.category = category;
+    if (search) {
+      priceQuery.$or = [
+        { city: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+      ];
     }
 
-    if (updates.length > 0) {
-      const result = await this.userShippingModel.bulkWrite(updates);
-      return { modifiedCount: result.modifiedCount + result.upsertedCount };
-    }
+    const skip = (page - 1) * limit;
 
-    return { modifiedCount: 0 };
+    const [cityPrices, totalItems, userAdjustments] = await Promise.all([
+      this.cityPriceModel
+        .find(priceQuery)
+        .skip(skip)
+        .limit(limit)
+        .sort({ city: 1 })
+        .lean()
+        .exec(),
+      this.cityPriceModel.countDocuments(priceQuery).exec(),
+      this.userCategoryAdjustmentModel.find({ user: userId }).lean().exec(),
+    ]);
+
+    // Create adjustment map
+    const adjustmentMap = new Map(
+      userAdjustments.map((adj) => [adj.category, adj.adjustment_amount || 0]),
+    );
+
+    // Calculate effective prices
+    const data = cityPrices.map((cp) => {
+      const adjustment = adjustmentMap.get(cp.category) || 0;
+      return {
+        city: cp.city,
+        category: cp.category,
+        base_price: cp.base_price,
+        adjustment_amount: adjustment,
+        effective_price: cp.base_price + adjustment,
+      };
+    });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async getEffectivePrice(
@@ -569,61 +414,38 @@ export class ShippingsService {
     category: string,
   ): Promise<{
     base_price: number;
-    default_price: number;
-    price_adjustment: number;
-    last_adjustment_amount: number;
-    last_adjustment_date: Date;
-    current_price: number;
-    source: string;
+    adjustment_amount: number;
+    effective_price: number;
+    last_adjustment_amount: number | null;
+    last_adjustment_date: Date | null;
   }> {
-    const cityPrice = await this.cityPriceModel
-      .findOne({ city, category })
-      .exec();
+    this.logger.log(
+      `Getting effective price for user ${userId}, city: ${city}, category: ${category}`,
+    );
+
+    const [cityPrice, userAdjustment] = await Promise.all([
+      this.cityPriceModel.findOne({ city, category }).lean().exec(),
+      this.userCategoryAdjustmentModel
+        .findOne({ user: userId, category })
+        .lean()
+        .exec(),
+    ]);
 
     if (!cityPrice) {
       throw new NotFoundException(
-        `Base city price not found for city ${city} and category ${category}`,
+        `City price not found for city "${city}" and category "${category}"`,
       );
     }
 
-    let userShipping = await this.userShippingModel
-      .findOne({ user: userId, city, category })
-      .exec();
-
-    if (!userShipping) {
-      userShipping = await this.userShippingModel.create({
-        user: userId,
-        city,
-        category,
-        default_price: cityPrice.base_price,
-        price_adjustment: 0,
-        last_adjustment_amount: null,
-        last_adjustment_date: null,
-        current_price: cityPrice.base_price,
-      });
-    }
-
-    const basePrice = cityPrice.base_price;
-    const defaultPrice = userShipping.default_price;
-    const priceAdjustment = userShipping.price_adjustment;
-    const lastAdjustmentAmount = userShipping.last_adjustment_amount;
-    const lastAdjustmentDate = userShipping.last_adjustment_date;
-    const currentPrice = userShipping.current_price;
-
-    const source = determinePriceSource({
-      basePrice,
-      defaultPrice,
-      priceAdjustment,
-    });
+    const adjustmentAmount = userAdjustment?.adjustment_amount || 0;
+    const effectivePrice = cityPrice.base_price + adjustmentAmount;
 
     return {
-      base_price: basePrice,
-      default_price: defaultPrice,
-      price_adjustment: priceAdjustment,
-      last_adjustment_amount: lastAdjustmentAmount,
-      last_adjustment_date: lastAdjustmentDate,
-      current_price: currentPrice,
-      source,
+      base_price: cityPrice.base_price,
+      adjustment_amount: adjustmentAmount,
+      effective_price: effectivePrice,
+      last_adjustment_amount: userAdjustment?.last_adjustment_amount ?? null,
+      last_adjustment_date: userAdjustment?.last_adjustment_date ?? null,
     };
   }
 }
