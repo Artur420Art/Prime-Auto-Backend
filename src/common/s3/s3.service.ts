@@ -14,6 +14,7 @@ export class S3Service {
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
   private readonly endpoint: string;
+  private readonly usePublicUrls: boolean;
 
   constructor() {
     const bucket = process.env.AWS_S3_BUCKET_NAME;
@@ -30,6 +31,8 @@ export class S3Service {
 
     this.bucketName = bucket;
     this.endpoint = endpoint.replace(/\/$/, '');
+    // Enable public URLs when S3_PUBLIC_ACCESS=true (set this after enabling public access in Railway)
+    this.usePublicUrls = process.env.S3_PUBLIC_ACCESS === 'true';
 
     this.s3Client = new S3Client({
       endpoint: this.endpoint,
@@ -41,10 +44,19 @@ export class S3Service {
       forcePathStyle: false, // ✅ MUST be false for Railway
     });
 
-    this.logger.log('✅ S3 Client initialized for Railway S3');
+    this.logger.log(
+      `✅ S3 Client initialized for Railway S3 (public URLs: ${this.usePublicUrls})`,
+    );
   }
 
-  // Upload a file and return a presigned URL (valid for 7 days)
+  // Generate a public URL for direct access (no expiration)
+  getPublicUrl(key: string): string {
+    // Railway S3 URL format: https://{bucket}.{endpoint-host}/{key}
+    const endpointUrl = new URL(this.endpoint);
+    return `https://${this.bucketName}.${endpointUrl.host}/${key}`;
+  }
+
+  // Upload a file and return URL (public or presigned based on config)
   async upload({
     key,
     file,
@@ -66,9 +78,14 @@ export class S3Service {
         }),
       );
 
-      // Generate a presigned URL valid for 7 days (604800 seconds)
-      const url = await this.getPresignedUrl(key, 604800);
-      this.logger.log(`✅ File uploaded successfully with presigned URL`);
+      // Use public URL if enabled, otherwise fall back to presigned URL (7 days)
+      const url = this.usePublicUrls
+        ? this.getPublicUrl(key)
+        : await this.getPresignedUrl(key, 604800);
+
+      this.logger.log(
+        `✅ File uploaded successfully (${this.usePublicUrls ? 'public' : 'presigned'} URL)`,
+      );
       return { url, key };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -105,12 +122,15 @@ export class S3Service {
 
       await Promise.all(uploadPromises);
 
-      // Generate presigned URLs in parallel
-      const urlPromises = files.map(({ key }) =>
-        this.getPresignedUrl(key, 604800).then((url) => ({ url, key })),
-      );
+      // Generate URLs (public or presigned based on config)
+      const results = this.usePublicUrls
+        ? files.map(({ key }) => ({ url: this.getPublicUrl(key), key }))
+        : await Promise.all(
+            files.map(({ key }) =>
+              this.getPresignedUrl(key, 604800).then((url) => ({ url, key })),
+            ),
+          );
 
-      const results = await Promise.all(urlPromises);
       this.logger.log(`✅ Successfully uploaded ${files.length} files`);
       return results;
     } catch (err: unknown) {
