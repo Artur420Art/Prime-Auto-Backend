@@ -181,7 +181,45 @@ export class ShippingsService {
       `Adjusted base price for ${result.modifiedCount} city prices`,
     );
 
-    return { modifiedCount: result.modifiedCount };
+    return {
+      modifiedCount: result.modifiedCount,
+      adjustment_amount,
+      category,
+      city: city || 'all',
+      adjusted_at: new Date(),
+    };
+  }
+
+  async getBaseAdjustmentInfo({ category }: { category?: string }) {
+    this.logger.log(
+      `Getting base adjustment info for category: ${category || 'all'}`,
+    );
+
+    const query: FilterQuery<CityPrice> = {};
+    if (category) {
+      query.category = category;
+    }
+
+    // Get the most recent adjustment info (all cities in category have same adjustment)
+    const cityPrice = await this.cityPriceModel
+      .findOne(query)
+      .sort({ last_adjustment_date: -1 })
+      .lean()
+      .exec();
+
+    if (!cityPrice) {
+      return {
+        last_adjustment_amount: null,
+        last_adjustment_date: null,
+        category: category || 'all',
+      };
+    }
+
+    return {
+      last_adjustment_amount: cityPrice.last_adjustment_amount,
+      last_adjustment_date: cityPrice.last_adjustment_date,
+      category: cityPrice.category,
+    };
   }
 
   // ========================================

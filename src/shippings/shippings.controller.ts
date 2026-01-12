@@ -111,11 +111,41 @@ export class ShippingsController {
   @ApiOkResponse({
     schema: {
       type: 'object',
-      properties: { modifiedCount: { type: 'number' } },
+      properties: {
+        modifiedCount: { type: 'number' },
+        adjustment_amount: { type: 'number' },
+        category: { type: 'string' },
+        city: { type: 'string' },
+        adjusted_at: { type: 'string', format: 'date-time' },
+      },
     },
   })
   adjustBasePrice(@Body() adjustBasePriceDto: AdjustBasePriceDto) {
     return this.shippingsService.adjustBasePrice(adjustBasePriceDto);
+  }
+
+  @Get('base-adjustment')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Get last base price adjustment info (Admin only)',
+  })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        last_adjustment_amount: { type: 'number', nullable: true },
+        last_adjustment_date: {
+          type: 'string',
+          format: 'date-time',
+          nullable: true,
+        },
+        category: { type: 'string' },
+      },
+    },
+  })
+  getBaseAdjustmentInfo(@Query('category') category?: string) {
+    return this.shippingsService.getBaseAdjustmentInfo({ category });
   }
 
   // ========================================
