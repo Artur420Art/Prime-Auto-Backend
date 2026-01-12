@@ -1,13 +1,9 @@
-import { IsNumber, IsString, IsEnum } from 'class-validator';
+import { IsNumber, IsString, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 import { ShippingCategory } from '../enums/category.enum';
 
-export class AdminAdjustUserPriceDto {
-  @ApiProperty({ description: 'User ID to adjust price for' })
-  @IsString()
-  userId: string;
-
+export class AdjustPriceDto {
   @ApiProperty({
     enum: ShippingCategory,
     description: 'Shipping category to adjust',
@@ -21,4 +17,12 @@ export class AdminAdjustUserPriceDto {
   })
   @IsNumber()
   adjustment_amount: number;
+
+  @ApiProperty({
+    description: 'User ID (Admin only - if not provided, adjusts own price)',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }

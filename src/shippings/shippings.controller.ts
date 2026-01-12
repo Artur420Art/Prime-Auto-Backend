@@ -22,9 +22,8 @@ import {
 import { ShippingsService } from './shippings.service';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
 import { UpdateCityPriceDto } from './dto/update-city-price.dto';
-import { AdjustUserPricesDto } from './dto/update-price.dto';
+import { AdjustPriceDto } from './dto/adjust-user-price.dto';
 import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
-import { AdminAdjustUserPriceDto } from './dto/admin-adjust-user-price.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -40,8 +39,13 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class ShippingsController {
   constructor(private readonly shippingsService: ShippingsService) {}
 
+  // Helper to check if user is admin
+  private isAdmin(req: { user: { roles: string[] } }): boolean {
+    return req.user.roles?.includes('admin') || false;
+  }
+
   // ========================================
-  // ADMIN - City Price Management
+  // Base City Price Management (Admin only)
   // ========================================
 
   @Post('')
@@ -99,15 +103,10 @@ export class ShippingsController {
     return this.shippingsService.removeCityPrice(id);
   }
 
-  // ========================================
-  // ADMIN - Adjust Base Price (all users)
-  // ========================================
-
-  @Patch('admin/adjust-base-price')
+  @Patch('adjust-base-price')
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary:
-      'Admin adjusts base price for all (stores last_adjustment_amount). If city not provided, applies to all cities in category.',
+    summary: 'Adjust base price for category (Admin only)',
   })
   @ApiOkResponse({
     schema: {
@@ -120,60 +119,29 @@ export class ShippingsController {
   }
 
   // ========================================
-  // ADMIN - Adjust Specific User's Price
+  // User Price Adjustment (Role-aware)
   // ========================================
 
-  @Patch('admin/adjust-user-price')
-  @Roles(Role.ADMIN)
+  @Patch('adjust-price')
   @ApiOperation({
     summary:
-      'Admin adjusts price for a specific user (stores adjustment for that user)',
+      'Adjust price for category. Admin can specify userId, user adjusts own price.',
   })
   @ApiOkResponse({ type: UserCategoryAdjustment })
-  adminAdjustUserPrice(@Body() adjustDto: AdminAdjustUserPriceDto) {
-    return this.shippingsService.adminAdjustUserPrice(adjustDto);
-  }
-
-  @Get('admin/adjustments')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Admin gets all user adjustments' })
-  @ApiQuery({ name: 'category', required: false, type: String })
-  @ApiOkResponse({ type: [UserCategoryAdjustment] })
-  getAllAdjustments(@Query('category') category?: string) {
-    return this.shippingsService.getAllAdjustments(category);
-  }
-
-  @Get('admin/adjustments/:userId')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Admin gets adjustments for a specific user' })
-  @ApiOkResponse({ type: [UserCategoryAdjustment] })
-  getAdjustmentsByUserId(@Param('userId') userId: string) {
-    return this.shippingsService.getAdjustmentsByUserId(userId);
-  }
-
-  // ========================================
-  // USER - Adjust Own Price
-  // ========================================
-
-  @Patch('user/adjust-prices')
-  @ApiOperation({
-    summary: 'User adjusts their own price for a category (stores adjustment)',
-  })
-  @ApiOkResponse({ type: UserCategoryAdjustment })
-  adjustUserPrices(@Body() adjustDto: AdjustUserPricesDto, @Request() req) {
-    return this.shippingsService.adjustUserPrices({
+  adjustPrice(@Body() adjustDto: AdjustPriceDto, @Request() req) {
+    return this.shippingsService.adjustPrice({
       adjustDto,
-      userId: req.user.userId,
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
     });
   }
 
-  @Get('user/adjustment')
-  @ApiOperation({ summary: 'Get user adjustment for a category' })
-  @ApiQuery({
-    name: 'category',
-    required: false,
-    enum: ['copart', 'iaai', 'manheim'],
+  @Get('adjustment')
+  @ApiOperation({
+    summary: 'Get adjustment. Admin can specify userId, user gets own.',
   })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'userId', required: false, type: String })
   @ApiOkResponse({
     schema: {
       type: 'object',
@@ -193,30 +161,51 @@ export class ShippingsController {
       },
     },
   })
-  getUserAdjustment(@Request() req, @Query('category') category?: string) {
-    return this.shippingsService.getUserAdjustment({
-      userId: req.user.userId,
+  getAdjustment(
+    @Request() req,
+    @Query('category') category?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.shippingsService.getAdjustment({
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
+      userId,
       category,
     });
   }
 
-  @Get('user/adjustments')
-  @ApiOperation({ summary: 'Get all user adjustments (all categories)' })
+  @Get('adjustments')
+  @ApiOperation({
+    summary:
+      'Get all adjustments. Admin sees all (or filter by userId), user sees own.',
+  })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'userId', required: false, type: String })
   @ApiOkResponse({ type: [UserCategoryAdjustment] })
-  getAllUserAdjustments(@Request() req) {
-    return this.shippingsService.getAllUserAdjustments(req.user.userId);
+  getAllAdjustments(
+    @Request() req,
+    @Query('category') category?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.shippingsService.getAllAdjustments({
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
+      userId,
+      category,
+    });
   }
 
   // ========================================
-  // USER - Get Calculated Prices
+  // Get Prices (Role-aware)
   // ========================================
 
-  @Get('user/prices')
+  @Get('prices')
   @ApiOperation({
-    summary: 'Get all effective prices for user (base_price + user_adjustment)',
+    summary: 'Get effective prices. Admin can specify userId, user gets own.',
   })
   @ApiQuery({ name: 'category', required: false, type: String })
   @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiQuery({ name: 'userId', required: false, type: String })
   @ApiOkResponse({
     schema: {
       type: 'array',
@@ -243,37 +232,45 @@ export class ShippingsController {
       },
     },
   })
-  getUserPrices(
+  getPrices(
     @Request() req,
     @Query('category') category?: string,
     @Query('city') city?: string,
+    @Query('userId') userId?: string,
   ) {
-    return this.shippingsService.getUserPrices({
-      userId: req.user.userId,
+    return this.shippingsService.getPrices({
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
+      userId,
       category,
       city,
     });
   }
 
-  @Get('user/prices/paginated')
-  @ApiOperation({ summary: 'Get paginated effective prices for user' })
+  @Get('prices/paginated')
+  @ApiOperation({ summary: 'Get paginated effective prices (role-aware)' })
   @ApiQuery({ name: 'category', required: false, type: String })
-  getUserPricesPaginated(
+  @ApiQuery({ name: 'userId', required: false, type: String })
+  getPricesPaginated(
     @Request() req,
     @Query() paginationQuery: PaginationQueryDto,
     @Query('category') category?: string,
+    @Query('userId') userId?: string,
   ) {
-    return this.shippingsService.getUserPricesPaginated({
-      userId: req.user.userId,
+    return this.shippingsService.getPricesPaginated({
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
+      userId,
       category,
       paginationQuery,
     });
   }
 
-  @Get('user/prices/:city/:category')
+  @Get('prices/:city/:category')
   @ApiOperation({
-    summary: 'Get effective price for specific city and category',
+    summary: 'Get effective price for city/category (role-aware)',
   })
+  @ApiQuery({ name: 'userId', required: false, type: String })
   @ApiOkResponse({
     schema: {
       type: 'object',
@@ -305,11 +302,14 @@ export class ShippingsController {
     @Param('city') city: string,
     @Param('category') category: string,
     @Request() req,
+    @Query('userId') userId?: string,
   ) {
-    return this.shippingsService.getEffectivePrice(
-      req.user.userId,
+    return this.shippingsService.getEffectivePrice({
+      currentUserId: req.user.userId,
+      isAdmin: this.isAdmin(req),
+      userId,
       city,
       category,
-    );
+    });
   }
 }

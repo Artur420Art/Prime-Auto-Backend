@@ -9,9 +9,8 @@ import {
 } from './schemas/user-category-adjustment.schema';
 import { CreateCityPriceDto } from './dto/create-shipping.dto';
 import { UpdateCityPriceDto } from './dto/update-city-price.dto';
-import { AdjustUserPricesDto } from './dto/update-price.dto';
+import { AdjustPriceDto } from './dto/adjust-user-price.dto';
 import { AdjustBasePriceDto } from './dto/adjust-base-price.dto';
-import { AdminAdjustUserPriceDto } from './dto/admin-adjust-user-price.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Injectable()
@@ -26,7 +25,7 @@ export class ShippingsService {
   ) {}
 
   // ========================================
-  // CITY PRICE (Admin) - Base prices
+  // CITY PRICE - Base prices
   // ========================================
 
   async createCityPrice(createCityPriceDto: CreateCityPriceDto) {
@@ -147,7 +146,7 @@ export class ShippingsService {
   }
 
   // ========================================
-  // ADMIN - Adjust base price (all users)
+  // Adjust Base Price (Admin only)
   // ========================================
 
   async adjustBasePrice(adjustDto: AdjustBasePriceDto) {
@@ -186,18 +185,31 @@ export class ShippingsService {
   }
 
   // ========================================
-  // ADMIN - Adjust specific user's price
+  // Adjust User Price (Role-aware)
   // ========================================
 
-  async adminAdjustUserPrice(adjustDto: AdminAdjustUserPriceDto) {
-    const { userId, category, adjustment_amount } = adjustDto;
+  async adjustPrice({
+    adjustDto,
+    currentUserId,
+    isAdmin,
+  }: {
+    adjustDto: AdjustPriceDto;
+    currentUserId: string;
+    isAdmin: boolean;
+  }) {
+    const { category, adjustment_amount, userId } = adjustDto;
+
+    // Determine target user and who is adjusting
+    const targetUserId = isAdmin && userId ? userId : currentUserId;
+    const adjustedBy = isAdmin && userId ? AdjustedBy.ADMIN : AdjustedBy.USER;
+
     this.logger.log(
-      `Admin adjusting price for user ${userId}, category: ${category} by ${adjustment_amount}`,
+      `${adjustedBy} adjusting price for user ${targetUserId}, category: ${category} by ${adjustment_amount}`,
     );
 
     // Get existing adjustment to track history
     const existingAdjustment = await this.userCategoryAdjustmentModel
-      .findOne({ user: userId, category })
+      .findOne({ user: targetUserId, category })
       .lean()
       .exec();
 
@@ -206,7 +218,7 @@ export class ShippingsService {
 
     const updateFields: Record<string, unknown> = {
       adjustment_amount,
-      adjusted_by: AdjustedBy.ADMIN,
+      adjusted_by: adjustedBy,
     };
 
     if (isNewAdjustment) {
@@ -216,7 +228,7 @@ export class ShippingsService {
 
     const result = await this.userCategoryAdjustmentModel
       .findOneAndUpdate(
-        { user: userId, category },
+        { user: targetUserId, category },
         { $set: updateFields },
         { upsert: true, new: true },
       )
@@ -227,67 +239,28 @@ export class ShippingsService {
   }
 
   // ========================================
-  // USER - Adjust their own price
+  // Get Adjustments (Role-aware)
   // ========================================
 
-  async adjustUserPrices({
-    adjustDto,
-    userId,
-  }: {
-    adjustDto: AdjustUserPricesDto;
-    userId: string;
-  }) {
-    const { category, adjustment_amount } = adjustDto;
-    this.logger.log(
-      `User ${userId} adjusting prices for category ${category} by ${adjustment_amount}`,
-    );
-
-    // Get existing adjustment to track history
-    const existingAdjustment = await this.userCategoryAdjustmentModel
-      .findOne({ user: userId, category })
-      .lean()
-      .exec();
-
-    const currentAdjustment = existingAdjustment?.adjustment_amount ?? 0;
-    const isNewAdjustment = adjustment_amount !== currentAdjustment;
-
-    const updateFields: Record<string, unknown> = {
-      adjustment_amount,
-      adjusted_by: AdjustedBy.USER,
-    };
-
-    if (isNewAdjustment) {
-      updateFields.last_adjustment_amount = currentAdjustment;
-      updateFields.last_adjustment_date = new Date();
-    }
-
-    const result = await this.userCategoryAdjustmentModel
-      .findOneAndUpdate(
-        { user: userId, category },
-        { $set: updateFields },
-        { upsert: true, new: true },
-      )
-      .exec();
-
-    return result;
-  }
-
-  // ========================================
-  // GET ADJUSTMENTS
-  // ========================================
-
-  async getUserAdjustment({
+  async getAdjustment({
+    currentUserId,
+    isAdmin,
     userId,
     category,
   }: {
-    userId: string;
+    currentUserId: string;
+    isAdmin: boolean;
+    userId?: string;
     category?: string;
   }) {
+    // Admin can view any user, regular user can only view their own
+    const targetUserId = isAdmin && userId ? userId : currentUserId;
+
     this.logger.log(
-      `Getting adjustment for user ${userId}, category: ${category || 'any'}`,
+      `Getting adjustment for user ${targetUserId}, category: ${category || 'any'}`,
     );
 
-    const query: FilterQuery<UserCategoryAdjustment> = { user: userId };
+    const query: FilterQuery<UserCategoryAdjustment> = { user: targetUserId };
     if (category) {
       query.category = category;
     }
@@ -314,31 +287,35 @@ export class ShippingsService {
     };
   }
 
-  async getAllUserAdjustments(userId: string) {
-    this.logger.log(`Getting all adjustments for user ${userId}`);
-    return this.userCategoryAdjustmentModel
-      .find({ user: userId })
-      .lean()
-      .exec();
-  }
-
-  // Admin: Get all adjustments for a specific user
-  async getAdjustmentsByUserId(userId: string) {
-    this.logger.log(`Admin getting adjustments for user ${userId}`);
-    return this.userCategoryAdjustmentModel
-      .find({ user: userId })
-      .populate('user', 'firstName lastName email')
-      .lean()
-      .exec();
-  }
-
-  // Admin: Get all user adjustments (all users)
-  async getAllAdjustments(category?: string) {
-    this.logger.log(`Admin getting all user adjustments`);
+  async getAllAdjustments({
+    currentUserId,
+    isAdmin,
+    userId,
+    category,
+  }: {
+    currentUserId: string;
+    isAdmin: boolean;
+    userId?: string;
+    category?: string;
+  }) {
+    // Admin can view all or specific user, regular user sees only their own
     const query: FilterQuery<UserCategoryAdjustment> = {};
+
+    if (isAdmin) {
+      if (userId) {
+        query.user = userId;
+      }
+      // If no userId, admin sees all
+    } else {
+      query.user = currentUserId;
+    }
+
     if (category) {
       query.category = category;
     }
+
+    this.logger.log(`Getting adjustments with query: ${JSON.stringify(query)}`);
+
     return this.userCategoryAdjustmentModel
       .find(query)
       .populate('user', 'firstName lastName email')
@@ -347,20 +324,27 @@ export class ShippingsService {
   }
 
   // ========================================
-  // USER PRICES (calculated)
+  // Get Prices (Role-aware)
   // ========================================
 
-  async getUserPrices({
+  async getPrices({
+    currentUserId,
+    isAdmin,
     userId,
     category,
     city,
   }: {
-    userId: string;
+    currentUserId: string;
+    isAdmin: boolean;
+    userId?: string;
     category?: string;
     city?: string;
   }) {
+    // Admin can view any user's prices, regular user sees only their own
+    const targetUserId = isAdmin && userId ? userId : currentUserId;
+
     this.logger.log(
-      `Getting user prices for user ${userId}, category: ${category || 'all'}, city: ${city || 'all'}`,
+      `Getting prices for user ${targetUserId}, category: ${category || 'all'}, city: ${city || 'all'}`,
     );
 
     const priceQuery: FilterQuery<CityPrice> = {};
@@ -369,7 +353,10 @@ export class ShippingsService {
 
     const [cityPrices, userAdjustments] = await Promise.all([
       this.cityPriceModel.find(priceQuery).lean().exec(),
-      this.userCategoryAdjustmentModel.find({ user: userId }).lean().exec(),
+      this.userCategoryAdjustmentModel
+        .find({ user: targetUserId })
+        .lean()
+        .exec(),
     ]);
 
     // Create adjustment map for O(1) lookup
@@ -401,18 +388,24 @@ export class ShippingsService {
     });
   }
 
-  async getUserPricesPaginated({
+  async getPricesPaginated({
+    currentUserId,
+    isAdmin,
     userId,
     category,
     paginationQuery,
   }: {
-    userId: string;
+    currentUserId: string;
+    isAdmin: boolean;
+    userId?: string;
     category?: string;
     paginationQuery: PaginationQueryDto;
   }) {
+    const targetUserId = isAdmin && userId ? userId : currentUserId;
     const { page = 1, limit = 10, search } = paginationQuery;
+
     this.logger.log(
-      `Getting paginated user prices for user ${userId}, category: ${category || 'all'}`,
+      `Getting paginated prices for user ${targetUserId}, category: ${category || 'all'}`,
     );
 
     const priceQuery: FilterQuery<CityPrice> = {};
@@ -435,7 +428,10 @@ export class ShippingsService {
         .lean()
         .exec(),
       this.cityPriceModel.countDocuments(priceQuery).exec(),
-      this.userCategoryAdjustmentModel.find({ user: userId }).lean().exec(),
+      this.userCategoryAdjustmentModel
+        .find({ user: targetUserId })
+        .lean()
+        .exec(),
     ]);
 
     const adjustmentMap = new Map(
@@ -480,9 +476,23 @@ export class ShippingsService {
     };
   }
 
-  async getEffectivePrice(userId: string, city: string, category: string) {
+  async getEffectivePrice({
+    currentUserId,
+    isAdmin,
+    userId,
+    city,
+    category,
+  }: {
+    currentUserId: string;
+    isAdmin: boolean;
+    userId?: string;
+    city: string;
+    category: string;
+  }) {
+    const targetUserId = isAdmin && userId ? userId : currentUserId;
+
     this.logger.log(
-      `Getting effective price for user ${userId}, city: ${city}, category: ${category}`,
+      `Getting effective price for user ${targetUserId}, city: ${city}, category: ${category}`,
     );
 
     const cityPrice = await this.cityPriceModel
@@ -491,7 +501,7 @@ export class ShippingsService {
       .exec();
 
     const userAdjustment = await this.userCategoryAdjustmentModel
-      .findOne({ user: userId, category })
+      .findOne({ user: targetUserId, category })
       .lean()
       .exec();
 
