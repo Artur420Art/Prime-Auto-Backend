@@ -228,6 +228,43 @@ export class ShippingsService {
     }
   }
 
+  /**
+   * Gets price summary for a specific city and category
+   * Returns only adjustment value, effective price, and date
+   *
+   * @param city - City name
+   * @param category - Auction category
+   * @returns Object with adjustment_amount, effective_price, last_adjustment_date
+   */
+  async getPriceSummary({
+    city,
+    category,
+  }: {
+    city?: string;
+    category?: string;
+  }) {
+    this.logger.log(
+      `Getting price summary for city: ${city}, category: ${category}`,
+    );
+
+    const cityPrice = await this.cityPriceModel
+      .findOne({ city, category })
+      .lean()
+      .exec();
+
+    if (!cityPrice) {
+      throw new NotFoundException(
+        `Price not found for city "${city}" and category "${category}"`,
+      );
+    }
+
+    return {
+      adjustment_amount: cityPrice.last_adjustment_amount || 0,
+      effective_price: cityPrice.base_price,
+      last_adjustment_date: cityPrice.last_adjustment_date || null,
+    };
+  }
+
   // ========================================
   // Adjust Base Price (Admin only)
   // ========================================

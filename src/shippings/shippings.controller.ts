@@ -137,6 +137,32 @@ export class ShippingsController {
     return this.shippingsService.removeCityPrice(id);
   }
 
+  /**
+   * Get price summary (single object with adjustment, effective price, and date)
+   * Admin only
+   *
+   * GET /shippings/admin/price-summary?city=Los Angeles&category=copart
+   */
+  @Get('admin/price-summary')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get price summary for a city/category (Admin)' })
+  @ApiQuery({
+    name: 'category',
+    required: true,
+    description: 'Auction category (e.g., copart, iaai)',
+  })
+  @ApiQuery({
+    name: 'city',
+    required: false,
+    description: 'City name',
+  })
+  getPriceSummary(
+  @Query('category') category?: string,  
+  @Query('city') city?: string,
+  ) {
+    return this.shippingsService.getPriceSummary({ city, category });
+  }
+
   // ========================================
   // ADMIN ONLY - Adjust Base Prices
   // ========================================
@@ -200,13 +226,6 @@ export class ShippingsController {
     });
   }
 
-  /**
-   * Get all user adjustments
-   * - Returns current user's adjustments (from JWT token)
-   * - Admin sees all their managed adjustments
-   *
-   * GET /shippings/adjustments?category=copart
-   */
   @Get('adjustments')
   @ApiOperation({ summary: 'Get all user adjustments' })
   @ApiQuery({
