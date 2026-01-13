@@ -1,57 +1,64 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { ApiProperty } from '@nestjs/swagger';
-
-import { User } from '../../users/schemas/user.schema';
-import { ShippingCategory } from '../enums/category.enum';
 
 export enum AdjustedBy {
-  USER = 'user',
   ADMIN = 'admin',
+  USER = 'user',
 }
 
-@Schema({ timestamps: true, collection: 'user_category_adjustments' })
+/**
+ * UserCategoryAdjustment Schema
+ * 
+ * Represents a user's price adjustment for an entire category.
+ * This adjustment applies to ALL cities in that category for the user.
+ * 
+ * Fields:
+ * - user: Reference to User
+ * - category: Auction category (copart, iaai, manheim)
+ * - adjustment_amount: Current adjustment (+/- amount)
+ * - adjusted_by: Who made the adjustment (admin or user)
+ * - last_adjustment_amount: Previous adjustment value (for history)
+ * - last_adjustment_date: When the last adjustment was made
+ * 
+ * Example:
+ * If user has adjustment_amount=50 for "copart",
+ * all copart cities will have +50 added to their base price for that user.
+ */
+@Schema({ timestamps: true })
 export class UserCategoryAdjustment extends Document {
-  @ApiProperty({ type: String })
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  user: User;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  user: Types.ObjectId;
 
-  @ApiProperty({
-    enum: ShippingCategory,
-    description: 'Shipping category (copart, iaai, manheim)',
+  @Prop({ 
+    required: true, 
+    enum: ['copart', 'iaai', 'manheim'],
+    index: true 
   })
-  @Prop({ required: true, enum: ShippingCategory })
-  category: ShippingCategory;
+  category: string;
 
-  @ApiProperty({
-    description: 'Current adjustment amount for this category (+ or -)',
-  })
-  @Prop({ type: Number, default: 0 })
+  @Prop({ required: true, default: 0 })
   adjustment_amount: number;
 
-  @ApiProperty({
-    enum: AdjustedBy,
-    description: 'Who made the adjustment (user or admin)',
+  @Prop({ 
+    type: String, 
+    enum: Object.values(AdjustedBy),
+    default: AdjustedBy.USER 
   })
-  @Prop({ type: String, enum: AdjustedBy, default: AdjustedBy.USER })
   adjusted_by: AdjustedBy;
 
-  @ApiProperty({
-    description: 'Previous adjustment amount (for tracking history)',
-  })
   @Prop({ type: Number, default: null })
-  last_adjustment_amount: number;
+  last_adjustment_amount: number | null;
 
-  @ApiProperty({
-    description: 'Date when the last adjustment was made',
-  })
   @Prop({ type: Date, default: null })
-  last_adjustment_date: Date;
+  last_adjustment_date: Date | null;
 }
 
 export const UserCategoryAdjustmentSchema = SchemaFactory.createForClass(
   UserCategoryAdjustment,
 );
 
-// Unique index: one adjustment per user per category
-UserCategoryAdjustmentSchema.index({ user: 1, category: 1 }, { unique: true });
+// Create compound index to ensure one adjustment per user per category
+UserCategoryAdjustmentSchema.index(
+  { user: 1, category: 1 }, 
+  { unique: true }
+);

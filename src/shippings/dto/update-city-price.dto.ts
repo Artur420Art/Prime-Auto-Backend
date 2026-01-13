@@ -1,9 +1,18 @@
-import { IsNumber, Min } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsEnum, IsOptional, Min } from 'class-validator';
 
 export class UpdateCityPriceDto {
-  @ApiProperty({ description: 'New base price from PDF' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsEnum(['copart', 'iaai', 'manheim'], {
+    message: 'Category must be one of: copart, iaai, manheim',
+  })
+  category?: string;
+
+  @IsOptional()
   @IsNumber()
-  @Min(0)
-  base_price: number;
+  @Min(0, { message: 'Base price must be greater than or equal to 0' })
+  base_price?: number;
 }

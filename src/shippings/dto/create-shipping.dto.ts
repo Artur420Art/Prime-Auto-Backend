@@ -1,21 +1,15 @@
-import { IsNumber, IsString, Min, IsEnum } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { ShippingCategory } from '../enums/category.enum';
+import { IsString, IsNumber, IsEnum, Min } from 'class-validator';
 
 export class CreateCityPriceDto {
-  @ApiProperty({ description: 'City name' })
   @IsString()
   city: string;
 
-  @ApiProperty({
-    enum: ShippingCategory,
-    description: 'Shipping category (copart, iaai, manheim)',
+  @IsEnum(['copart', 'iaai', 'manheim'], {
+    message: 'Category must be one of: copart, iaai, manheim',
   })
-  @IsEnum(ShippingCategory)
-  category: ShippingCategory;
+  category: string;
 
-  @ApiProperty({ description: 'Base price from PDF' })
   @IsNumber()
-  @Min(0)
+  @Min(0, { message: 'Base price must be greater than or equal to 0' })
   base_price: number;
 }

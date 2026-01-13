@@ -1,33 +1,35 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { ApiProperty } from '@nestjs/swagger';
-import { ShippingCategory } from '../enums/category.enum';
 
-@Schema({ timestamps: true, collection: 'default_shipping' })
+/**
+ * CityPrice Schema
+ *
+ * Represents the base shipping price for a city/category combination.
+ * Admin creates and manages these base prices.
+ */
+@Schema({ timestamps: true })
 export class CityPrice extends Document {
-  @ApiProperty()
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   city: string;
 
-  @ApiProperty({
-    enum: ShippingCategory,
-    description: 'Shipping category (copart, iaai, manheim)',
+  @Prop({
+    required: true,
+    enum: ['copart', 'iaai', 'manheim'],
+    index: true,
   })
-  @Prop({ required: true, enum: ShippingCategory })
-  category: ShippingCategory;
+  category: string;
 
-  @ApiProperty({ description: 'Base price' })
-  @Prop({ required: true, type: Number, min: 0 })
+  @Prop({ required: true, min: 0 })
   base_price: number;
 
-  @ApiProperty({ description: 'Last adjustment amount applied by admin' })
   @Prop({ type: Number, default: null })
-  last_adjustment_amount: number;
+  last_adjustment_amount: number | null;
 
-  @ApiProperty({ description: 'Date when the last adjustment was made' })
   @Prop({ type: Date, default: null })
-  last_adjustment_date: Date;
+  last_adjustment_date: Date | null;
 }
 
 export const CityPriceSchema = SchemaFactory.createForClass(CityPrice);
+
+// Create compound index for efficient queries
 CityPriceSchema.index({ city: 1, category: 1 }, { unique: true });

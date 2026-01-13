@@ -1,29 +1,34 @@
-import { IsNumber, IsString, IsEnum, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsEnum, IsOptional } from 'class-validator';
 
-import { ShippingCategory } from '../enums/category.enum';
-
+/**
+ * AdjustBasePriceDto
+ * 
+ * Used by admin to adjust base prices for a category.
+ * The adjustment_amount will be ADDED to existing base prices (can be negative).
+ * 
+ * Example:
+ * {
+ *   "category": "copart",
+ *   "adjustment_amount": 100  // Adds $100 to all copart cities
+ * }
+ * 
+ * Or adjust specific city:
+ * {
+ *   "category": "copart",
+ *   "city": "Los Angeles",
+ *   "adjustment_amount": -50  // Reduces LA copart by $50
+ * }
+ */
 export class AdjustBasePriceDto {
-  @ApiProperty({
-    enum: ShippingCategory,
-    description: 'Shipping category (required)',
+  @IsEnum(['copart', 'iaai', 'manheim'], {
+    message: 'Category must be one of: copart, iaai, manheim',
   })
-  @IsEnum(ShippingCategory)
-  category: ShippingCategory;
+  category: string;
 
-  @ApiProperty({
-    description:
-      'City name (optional - if not provided, applies to all cities in the category)',
-    required: false,
-  })
   @IsOptional()
   @IsString()
   city?: string;
 
-  @ApiProperty({
-    description: 'Amount to adjust base price (+ to increase, - to decrease)',
-    example: 50,
-  })
   @IsNumber()
   adjustment_amount: number;
 }

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
-import { ShippingsService } from './shippings.service';
 import { ShippingsController } from './shippings.controller';
+import { ShippingsService } from './shippings.service';
 import { CityPrice, CityPriceSchema } from './schemas/city-price.schema';
 import {
   UserCategoryAdjustment,
@@ -13,7 +13,10 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: CityPrice.name, schema: CityPriceSchema },
-      { name: UserCategoryAdjustment.name, schema: UserCategoryAdjustmentSchema },
+      {
+        name: UserCategoryAdjustment.name,
+        schema: UserCategoryAdjustmentSchema,
+      },
     ]),
   ],
   controllers: [ShippingsController],
