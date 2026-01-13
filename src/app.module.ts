@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
 
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +14,7 @@ import { AvailableCarsModule } from './available-cars/available-cars.module';
 import { S3Module } from './common/s3/s3.module';
 import { HealthModule } from './health/health.module';
 import { FilesModule } from './files/files.module';
+import { CalculatorModule } from './calculator/calculator.module';
 
 @Module({
   imports: [
@@ -35,6 +34,7 @@ import { FilesModule } from './files/files.module';
     AvailableCarsModule,
     HealthModule,
     FilesModule,
+    CalculatorModule
   ],
   controllers: [],
   providers: [],
