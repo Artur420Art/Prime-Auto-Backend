@@ -230,32 +230,69 @@ export class ShippingsService {
 
   /**
    * Gets price summary for a category
-   * Returns only adjustment value and date (since adjustments are done by category)
+   * - Admin: returns base_price and base_adjustment info
+   * - User: returns their own user adjustment info
    *
    * @param category - Auction category
-   * @returns Object with adjustment_amount and last_adjustment_date
+   * @param currentUserId - ID of current user
+   * @param isAdmin - Whether user is admin
+   * @returns Different data based on role
    */
-  async getPriceSummary({ category }: { category: string }) {
-    this.logger.log(`Getting price summary for category: ${category}`);
+  async getPriceSummary({
+    category,
+    currentUserId,
+    isAdmin,
+  }: {
+    category: string;
+    currentUserId: string;
+    isAdmin: boolean;
+  }) {
+    this.logger.log(
+      `Getting price summary for category: ${category}, user: ${currentUserId}, isAdmin: ${isAdmin}`,
+    );
 
-    // Find any city price with this category to get the adjustment info
-    // (all cities in the same category should have the same adjustment)
-    const cityPrice = await this.cityPriceModel
-      .findOne({ category })
-      .sort({ last_adjustment_date: -1 })
-      .lean()
-      .exec();
+    if (isAdmin) {
+      // Admin: return base price and base adjustment info
+      const cityPrice = await this.cityPriceModel
+        .findOne({ category })
+        .sort({ last_adjustment_date: -1 })
+        .lean()
+        .exec();
 
-    if (!cityPrice) {
-      throw new NotFoundException(
-        `No prices found for category "${category}"`,
-      );
+      if (!cityPrice) {
+        throw new NotFoundException(
+          `No prices found for category "${category}"`,
+        );
+      }
+
+      return {
+        base_price: cityPrice.base_price,
+        base_adjustment_amount: cityPrice.last_adjustment_amount || 0,
+        last_adjustment_date: cityPrice.last_adjustment_date || null,
+      };
+    } else {
+      // User: return their own adjustment info
+      const userAdjustment = await this.userCategoryAdjustmentModel
+        .findOne({
+          user: currentUserId,
+          category,
+        })
+        .lean()
+        .exec();
+
+      if (!userAdjustment) {
+        // Return default values if user has no adjustment for this category
+        return {
+          user_adjustment_amount: 0,
+          last_adjustment_date: null,
+        };
+      }
+
+      return {
+        user_adjustment_amount: userAdjustment.adjustment_amount,
+        last_adjustment_date: userAdjustment.last_adjustment_date,
+      };
     }
-
-    return {
-      adjustment_amount: cityPrice.last_adjustment_amount || 0,
-      last_adjustment_date: cityPrice.last_adjustment_date || null,
-    };
   }
 
   // ========================================

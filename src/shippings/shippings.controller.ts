@@ -138,21 +138,28 @@ export class ShippingsController {
   }
 
   /**
-   * Get price summary (single object with adjustment and date for category)
-   * Admin only
+   * Get price summary for a category
+   * - Admin: returns base_price and base_adjustment info
+   * - User: returns their own adjustment info
    *
-   * GET /shippings/admin/price-summary?category=copart
+   * GET /shippings/price-summary?category=copart
    */
-  @Get('admin/price-summary')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get price summary for a category (Admin)' })
+  @Get('price-summary')
+  @ApiOperation({ summary: 'Get price summary for a category' })
   @ApiQuery({
     name: 'category',
     required: true,
     description: 'Auction category (e.g., copart, iaai)',
   })
-  getPriceSummary(@Query('category') category: string) {
-    return this.shippingsService.getPriceSummary({ category });
+  getPriceSummary(@Query('category') category: string, @Request() req: any) {
+    const currentUserId = req.user.userId;
+    const isAdmin = req.user.roles?.includes(Role.ADMIN);
+
+    return this.shippingsService.getPriceSummary({
+      category,
+      currentUserId,
+      isAdmin,
+    });
   }
 
   // ========================================
