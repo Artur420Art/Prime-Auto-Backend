@@ -5,11 +5,22 @@ import { firstValueFrom } from 'rxjs';
 @Injectable()
 export class ExchangeRateService {
   private readonly logger = new Logger(ExchangeRateService.name);
-  private readonly apiUrl = 'https://cb.am/latest.json.php?currency=USD';
+  private readonly apiUrl = 'https://cb.am/latest.json.php';
 
   constructor(private readonly httpService: HttpService) {}
 
   async getAmdUsdRate(): Promise<any> {
+    this.logger.log('Fetching AMD/USD exchange rate from external API');
+    try {
+      const { data } = await firstValueFrom(this.httpService.get(this.apiUrl+'?currency=USD'));
+      this.logger.log('Successfully fetched exchange rate');
+      return data;
+    } catch (error) {
+      this.logger.error(`Error fetching exchange rate: ${error.message}`);
+      throw error;
+    }
+  }
+  async getAllRates(): Promise<any> {
     this.logger.log('Fetching AMD/USD exchange rate from external API');
     try {
       const { data } = await firstValueFrom(this.httpService.get(this.apiUrl));

@@ -16,4 +16,14 @@ export class ExchangeRateController {
   async getAmdUsdRate() {
     return this.exchangeRateService.getAmdUsdRate();
   }
+
+  @Get('all-rates')
+  @ApiOperation({ summary: 'Get all exchange rates' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved all exchange rates',
+  })
+  async getAllRates() {
+    return this.exchangeRateService.getAllRates();
+  }
 }
