@@ -105,6 +105,7 @@ export class ShippingsService {
       adjusted_by: null,
     };
     return {
+      _id: cityPrice._id,
       city: cityPrice.city,
       category: cityPrice.category,
       base_price: cityPrice.base_price,
