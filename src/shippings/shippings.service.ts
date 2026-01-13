@@ -248,15 +248,9 @@ export class ShippingsService {
     );
 
     const cityPrice = await this.cityPriceModel
-      .findOne({ city, category })
+      .findOne({ category })
       .lean()
       .exec();
-
-    if (!cityPrice) {
-      throw new NotFoundException(
-        `Price not found for city "${city}" and category "${category}"`,
-      );
-    }
 
     return {
       adjustment_amount: cityPrice.last_adjustment_amount || 0,
