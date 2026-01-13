@@ -138,29 +138,21 @@ export class ShippingsController {
   }
 
   /**
-   * Get price summary (single object with adjustment, effective price, and date)
+   * Get price summary (single object with adjustment and date for category)
    * Admin only
    *
-   * GET /shippings/admin/price-summary?city=Los Angeles&category=copart
+   * GET /shippings/admin/price-summary?category=copart
    */
   @Get('admin/price-summary')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get price summary for a city/category (Admin)' })
+  @ApiOperation({ summary: 'Get price summary for a category (Admin)' })
   @ApiQuery({
     name: 'category',
     required: true,
     description: 'Auction category (e.g., copart, iaai)',
   })
-  @ApiQuery({
-    name: 'city',
-    required: false,
-    description: 'City name',
-  })
-  getPriceSummary(
-  @Query('category') category?: string,  
-  @Query('city') city?: string,
-  ) {
-    return this.shippingsService.getPriceSummary({ city, category });
+  getPriceSummary(@Query('category') category: string) {
+    return this.shippingsService.getPriceSummary({ category });
   }
 
   // ========================================

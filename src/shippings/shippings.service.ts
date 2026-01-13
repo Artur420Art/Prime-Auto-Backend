@@ -229,32 +229,31 @@ export class ShippingsService {
   }
 
   /**
-   * Gets price summary for a specific city and category
-   * Returns only adjustment value, effective price, and date
+   * Gets price summary for a category
+   * Returns only adjustment value and date (since adjustments are done by category)
    *
-   * @param city - City name
    * @param category - Auction category
-   * @returns Object with adjustment_amount, effective_price, last_adjustment_date
+   * @returns Object with adjustment_amount and last_adjustment_date
    */
-  async getPriceSummary({
-    city,
-    category,
-  }: {
-    city?: string;
-    category?: string;
-  }) {
-    this.logger.log(
-      `Getting price summary for city: ${city}, category: ${category}`,
-    );
+  async getPriceSummary({ category }: { category: string }) {
+    this.logger.log(`Getting price summary for category: ${category}`);
 
+    // Find any city price with this category to get the adjustment info
+    // (all cities in the same category should have the same adjustment)
     const cityPrice = await this.cityPriceModel
       .findOne({ category })
+      .sort({ last_adjustment_date: -1 })
       .lean()
       .exec();
 
+    if (!cityPrice) {
+      throw new NotFoundException(
+        `No prices found for category "${category}"`,
+      );
+    }
+
     return {
       adjustment_amount: cityPrice.last_adjustment_amount || 0,
-      effective_price: cityPrice.base_price,
       last_adjustment_date: cityPrice.last_adjustment_date || null,
     };
   }
