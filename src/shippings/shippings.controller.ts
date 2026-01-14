@@ -380,7 +380,12 @@ export class ShippingsController {
   @ApiOperation({
     summary: 'Get all cities grouped by category (Public)',
   })
-  getCitiesByCategoryPublic() {
-    return this.shippingsService.getCitiesByCategory();
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: 'Auction category (e.g. copart, iaai)',
+  })
+  getCitiesByCategoryPublic(@Query('category') category?: string) {
+    return this.shippingsService.getCitiesByCategory(category);
   }
 }

@@ -694,10 +694,17 @@ export class ShippingsService {
     };
   }
 
-  async getCitiesByCategory() {
-    this.logger.log('Fetching all cities grouped by category (public)');
+  async getCitiesByCategory(category?: string) {
+    this.logger.log(
+      `Fetching cities by category (public), category: ${category || 'all'}`,
+    );
+
+    const matchStage = category ? { category } : {};
 
     return this.cityPriceModel.aggregate([
+      {
+        $match: matchStage,
+      },
       {
         $group: {
           _id: '$category',
@@ -716,5 +723,4 @@ export class ShippingsService {
       },
     ]);
   }
-
 }
