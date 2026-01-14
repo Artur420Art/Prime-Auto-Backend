@@ -374,4 +374,13 @@ export class ShippingsController {
       category,
     });
   }
+
+  @Get('public/cities')
+  @UseGuards()
+  @ApiOperation({
+    summary: 'Get all cities grouped by category (Public)',
+  })
+  getCitiesByCategoryPublic() {
+    return this.shippingsService.getCitiesByCategory();
+  }
 }

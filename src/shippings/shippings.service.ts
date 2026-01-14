@@ -693,4 +693,28 @@ export class ShippingsService {
       effective_price: effectivePrice,
     };
   }
+
+  async getCitiesByCategory() {
+    this.logger.log('Fetching all cities grouped by category (public)');
+
+    return this.cityPriceModel.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          cities: { $addToSet: '$city' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          category: '$_id',
+          cities: 1,
+        },
+      },
+      {
+        $sort: { category: 1 },
+      },
+    ]);
+  }
+
 }
