@@ -5,6 +5,8 @@ import {
   DeleteObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -243,5 +245,86 @@ export class S3Service {
     }
 
     return parts.join('/');
+  }
+
+  // List all objects in the bucket
+  async listAllObjects(): Promise<string[]> {
+    this.logger.log('Listing all objects in S3 bucket');
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+
+    try {
+      do {
+        const command = new ListObjectsV2Command({
+          Bucket: this.bucketName,
+          ContinuationToken: continuationToken,
+        });
+
+        const response = await this.s3Client.send(command);
+
+        if (response.Contents) {
+          keys.push(
+            ...response.Contents.filter((obj) => obj.Key).map(
+              (obj) => obj.Key as string,
+            ),
+          );
+        }
+
+        continuationToken = response.NextContinuationToken;
+      } while (continuationToken);
+
+      this.logger.log(`Found ${keys.length} objects in S3 bucket`);
+      return keys;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`List all objects failed: ${message}`, stack);
+      throw err;
+    }
+  }
+
+  // Delete all objects in the bucket
+  async deleteAllObjects(): Promise<{ deletedCount: number }> {
+    this.logger.warn('⚠️  Initiating deletion of ALL objects in S3 bucket');
+
+    const keys = await this.listAllObjects();
+
+    if (keys.length === 0) {
+      this.logger.log('No objects found to delete');
+      return { deletedCount: 0 };
+    }
+
+    this.logger.warn(`Deleting ${keys.length} objects from S3 bucket`);
+
+    try {
+      // AWS DeleteObjects can delete up to 1000 objects at once
+      const batchSize = 1000;
+      const batches: string[][] = [];
+
+      for (let i = 0; i < keys.length; i += batchSize) {
+        batches.push(keys.slice(i, i + batchSize));
+      }
+
+      for (const batch of batches) {
+        const command = new DeleteObjectsCommand({
+          Bucket: this.bucketName,
+          Delete: {
+            Objects: batch.map((key) => ({ Key: key })),
+            Quiet: false,
+          },
+        });
+
+        await this.s3Client.send(command);
+        this.logger.log(`Deleted batch of ${batch.length} objects`);
+      }
+
+      this.logger.warn(`✅ Successfully deleted ${keys.length} objects`);
+      return { deletedCount: keys.length };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Delete all objects failed: ${message}`, stack);
+      throw err;
+    }
   }
 }

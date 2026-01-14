@@ -3,14 +3,23 @@ import type { Readable } from 'node:stream';
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Role } from '../users/enums/role.enum';
 
 import { FilesService } from './files.service';
 
@@ -50,6 +59,36 @@ export class FilesController {
       res,
       getObject: () => this.filesService.getObjectByKey({ key }),
     });
+  }
+
+  @Delete('all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete all images from S3 (Admin only)',
+    description:
+      'Permanently deletes all images from the S3 bucket. This operation cannot be undone.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'All images deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        deletedCount: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  async deleteAllImages() {
+    const result = await this.filesService.deleteAllImages();
+    return {
+      message: 'All images deleted successfully',
+      deletedCount: result.deletedCount,
+    };
   }
 
   private async streamFromS3({

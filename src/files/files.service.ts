@@ -14,4 +14,8 @@ export class FilesService {
     const key = this.s3Service.extractKeyFromUrl(url);
     return await this.s3Service.getObject({ key });
   };
+
+  deleteAllImages = async (): Promise<{ deletedCount: number }> => {
+    return await this.s3Service.deleteAllObjects();
+  };
 }
