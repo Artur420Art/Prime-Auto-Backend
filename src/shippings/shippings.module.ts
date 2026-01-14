@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { ShippingsController } from './shippings.controller';
+import { PublicShippingsController } from './public-shippings.controller';
 import { ShippingsService } from './shippings.service';
 import { CityPrice, CityPriceSchema } from './schemas/city-price.schema';
 import {
@@ -19,7 +20,7 @@ import {
       },
     ]),
   ],
-  controllers: [ShippingsController],
+  controllers: [ShippingsController, PublicShippingsController],
   providers: [ShippingsService],
   exports: [ShippingsService],
 })
