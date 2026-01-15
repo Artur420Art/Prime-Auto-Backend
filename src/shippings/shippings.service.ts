@@ -74,13 +74,20 @@ export class ShippingsService {
     adjustments: any[],
   ): Map<
     string,
-    { adjustment_amount: number; adjusted_by: AdjustedBy | null }
+    {
+      adjustment_amount: number;
+      user_adjustment_amount: number;
+      admin_adjustment_amount: number;
+      adjusted_by: AdjustedBy | null;
+    }
   > {
     return new Map(
       adjustments.map((adj) => [
         adj.category,
         {
           adjustment_amount: adj.adjustment_amount || 0,
+          user_adjustment_amount: adj.user_adjustment_amount || 0,
+          admin_adjustment_amount: adj.admin_adjustment_amount || 0,
           adjusted_by: adj.adjusted_by,
         },
       ]),
@@ -97,13 +104,22 @@ export class ShippingsService {
     cityPrice: any;
     adjustmentMap: Map<
       string,
-      { adjustment_amount: number; adjusted_by: AdjustedBy | null }
+      {
+        adjustment_amount: number;
+        user_adjustment_amount: number;
+        admin_adjustment_amount: number;
+        adjusted_by: AdjustedBy | null;
+      }
     >;
   }) {
     const userAdj = adjustmentMap.get(cityPrice.category) || {
       adjustment_amount: 0,
+      user_adjustment_amount: 0,
+      admin_adjustment_amount: 0,
       adjusted_by: null,
     };
+    const totalAdjustment =
+      userAdj.user_adjustment_amount + userAdj.admin_adjustment_amount;
     return {
       _id: cityPrice._id,
       city: cityPrice.city,
@@ -111,9 +127,11 @@ export class ShippingsService {
       base_price: cityPrice.base_price,
       base_last_adjustment_amount: cityPrice.last_adjustment_amount,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
-      user_adjustment_amount: userAdj.adjustment_amount,
+      user_adjustment_amount: userAdj.user_adjustment_amount,
+      admin_adjustment_amount: userAdj.admin_adjustment_amount,
+      total_adjustment_amount: totalAdjustment,
       adjusted_by: userAdj.adjusted_by,
-      effective_price: cityPrice.base_price + userAdj.adjustment_amount,
+      effective_price: cityPrice.base_price + totalAdjustment,
     };
   }
 
@@ -231,7 +249,7 @@ export class ShippingsService {
   /**
    * Gets price summary for a category
    * - Admin: returns base_price and base_adjustment info
-   * - User: returns their own user adjustment info
+   * - User: returns their own user adjustment info (both user and admin adjustments)
    *
    * @param category - Auction category
    * @param currentUserId - ID of current user
@@ -284,13 +302,18 @@ export class ShippingsService {
         // Return default values if user has no adjustment for this category
         return {
           user_adjustment_amount: 0,
-          last_adjustment_date: null,
+          admin_adjustment_amount: 0,
+          total_adjustment_amount: 0,
         };
       }
 
+      const userAmount = userAdjustment.user_adjustment_amount || 0;
+      const adminAmount = userAdjustment.admin_adjustment_amount || 0;
+
       return {
-        user_adjustment_amount: userAdjustment.adjustment_amount,
-        last_adjustment_date: userAdjustment.last_adjustment_date,
+        user_adjustment_amount: userAmount,
+        admin_adjustment_amount: adminAmount,
+        total_adjustment_amount: userAmount + adminAmount,
       };
     }
   }
@@ -352,13 +375,13 @@ export class ShippingsService {
 
   /**
    * Sets a user's price adjustment for a category
-   * - Admin can adjust any user's price (by providing userId)
-   * - User can only adjust their own price
+   * - Admin can adjust any user's price (by providing userId) - stored in admin_adjustment_amount
+   * - User can only adjust their own price - stored in user_adjustment_amount
+   * - Both adjustments are stored separately and combined for effective price
    * - Adjustment applies to ALL cities in that category
-   * - Tracks previous adjustment for history
    *
-   * Example: If user sets adjustment_amount=50 for "copart" category,
-   * all copart cities will have +50 added to their base price for that user
+   * Example: If user sets user_adjustment_amount=50 and admin sets admin_adjustment_amount=100 for "copart",
+   * all copart cities will have +150 added to their base price for that user
    *
    * @param adjustDto - Contains category, adjustment amount, and optional userId
    * @param currentUserId - ID of the requesting user
@@ -384,24 +407,16 @@ export class ShippingsService {
       `${adjustedBy} adjusting price for user ${targetUserId}, category: ${category}, amount: ${adjustment_amount}`,
     );
 
-    // Get existing adjustment to track history
-    const existingAdjustment = await this.userCategoryAdjustmentModel
-      .findOne({ user: targetUserId, category })
-      .lean()
-      .exec();
-
-    const currentAdjustment = existingAdjustment?.adjustment_amount ?? 0;
-    const isNewAdjustment = adjustment_amount !== currentAdjustment;
-
     const updateFields: Record<string, unknown> = {
-      adjustment_amount,
       adjusted_by: adjustedBy,
     };
 
-    // Track history only if the adjustment actually changed
-    if (isNewAdjustment) {
-      updateFields.last_adjustment_amount = currentAdjustment;
-      updateFields.last_adjustment_date = new Date();
+    if (adjustedBy === AdjustedBy.ADMIN) {
+      // Admin is adjusting - update admin_adjustment_amount
+      updateFields.admin_adjustment_amount = adjustment_amount;
+    } else {
+      // User is adjusting - update user_adjustment_amount
+      updateFields.user_adjustment_amount = adjustment_amount;
     }
 
     const result = await this.userCategoryAdjustmentModel
@@ -454,18 +469,21 @@ export class ShippingsService {
 
     if (!adjustment) {
       return {
-        adjustment_amount: 0,
+        user_adjustment_amount: 0,
+        admin_adjustment_amount: 0,
+        total_adjustment_amount: 0,
         adjusted_by: null,
-        last_adjustment_amount: null,
-        last_adjustment_date: null,
       };
     }
 
+    const userAdjustment = adjustment.user_adjustment_amount || 0;
+    const adminAdjustment = adjustment.admin_adjustment_amount || 0;
+
     return {
-      adjustment_amount: adjustment.adjustment_amount || 0,
+      user_adjustment_amount: userAdjustment,
+      admin_adjustment_amount: adminAdjustment,
+      total_adjustment_amount: userAdjustment + adminAdjustment,
       adjusted_by: adjustment.adjusted_by,
-      last_adjustment_amount: adjustment.last_adjustment_amount,
-      last_adjustment_date: adjustment.last_adjustment_date,
     };
   }
 
@@ -676,8 +694,10 @@ export class ShippingsService {
       );
     }
 
-    const adjustmentAmount = userAdjustment?.adjustment_amount || 0;
-    const effectivePrice = cityPrice.base_price + adjustmentAmount;
+    const userAdjustmentAmount = userAdjustment?.user_adjustment_amount || 0;
+    const adminAdjustmentAmount = userAdjustment?.admin_adjustment_amount || 0;
+    const totalAdjustment = userAdjustmentAmount + adminAdjustmentAmount;
+    const effectivePrice = cityPrice.base_price + totalAdjustment;
 
     return {
       city: cityPrice.city,
@@ -685,11 +705,10 @@ export class ShippingsService {
       base_price: cityPrice.base_price,
       base_last_adjustment_amount: cityPrice.last_adjustment_amount,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
-      user_adjustment_amount: adjustmentAmount,
+      user_adjustment_amount: userAdjustmentAmount,
+      admin_adjustment_amount: adminAdjustmentAmount,
+      total_adjustment_amount: totalAdjustment,
       adjusted_by: userAdjustment?.adjusted_by ?? null,
-      user_last_adjustment_amount:
-        userAdjustment?.last_adjustment_amount ?? null,
-      user_last_adjustment_date: userAdjustment?.last_adjustment_date ?? null,
       effective_price: effectivePrice,
     };
   }

@@ -15,16 +15,15 @@ export enum AdjustedBy {
  * Fields:
  * - user: Reference to User
  * - category: Auction category (copart, iaai, manheim)
- * - adjustment_amount: Current adjustment (+/- amount)
- * - adjusted_by: Who made the adjustment (admin or user)
- * - last_adjustment_amount: Previous adjustment value (for history)
- * - last_adjustment_date: When the last adjustment was made
+ * - user_adjustment_amount: Adjustment set by the user themselves
+ * - admin_adjustment_amount: Adjustment set by admin for this user
+ * - adjusted_by: Who made the last adjustment (admin or user)
  * 
  * Example:
- * If user has adjustment_amount=50 for "copart",
- * all copart cities will have +50 added to their base price for that user.
+ * If user has user_adjustment_amount=50 and admin_adjustment_amount=100 for "copart",
+ * all copart cities will have +150 added to their base price for that user.
  */
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'user_category_adjustments'})
 export class UserCategoryAdjustment extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   user: Types.ObjectId;
@@ -36,8 +35,13 @@ export class UserCategoryAdjustment extends Document {
   })
   category: string;
 
+  // User's own adjustment amount
   @Prop({ required: true, default: 0 })
-  adjustment_amount: number;
+  user_adjustment_amount: number;
+
+  // Admin's adjustment amount for this user
+  @Prop({ required: true, default: 0 })
+  admin_adjustment_amount: number;
 
   @Prop({ 
     type: String, 
@@ -45,12 +49,6 @@ export class UserCategoryAdjustment extends Document {
     default: AdjustedBy.USER 
   })
   adjusted_by: AdjustedBy;
-
-  @Prop({ type: Number, default: null })
-  last_adjustment_amount: number | null;
-
-  @Prop({ type: Date, default: null })
-  last_adjustment_date: Date | null;
 }
 
 export const UserCategoryAdjustmentSchema = SchemaFactory.createForClass(

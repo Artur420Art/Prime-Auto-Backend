@@ -7,7 +7,7 @@ import { Document } from 'mongoose';
  * Represents the base shipping price for a city/category combination.
  * Admin creates and manages these base prices.
  */
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'city_prices'})
 export class CityPrice extends Document {
   @Prop({ required: true, index: true })
   city: string;
