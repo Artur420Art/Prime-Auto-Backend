@@ -379,14 +379,15 @@ export class ShippingsService {
    * - User can only adjust their own price - stored in user_adjustment_amount
    * - Both adjustments are stored separately and combined for effective price
    * - Adjustment applies to ALL cities in that category
+   * - IMPORTANT: adjustment_amount is SET (replaces previous), always calculated from base price
    *
-   * Example: If user sets user_adjustment_amount=50 and admin sets admin_adjustment_amount=100 for "copart",
-   * all copart cities will have +150 added to their base price for that user
+   * Example: If base_price=1000 and user sets adjustment_amount=200, effective_price=1200
+   * If user then sets adjustment_amount=300, effective_price=1300 (NOT 1500)
    *
    * @param adjustDto - Contains category, adjustment amount, and optional userId
    * @param currentUserId - ID of the requesting user
    * @param isAdmin - Whether the requester is an admin
-   * @returns Updated adjustment record
+   * @returns Updated adjustment record with sample effective prices
    */
   async adjustPrice({
     adjustDto,
@@ -404,20 +405,31 @@ export class ShippingsService {
     const adjustedBy = isAdmin && userId ? AdjustedBy.ADMIN : AdjustedBy.USER;
 
     this.logger.log(
-      `${adjustedBy} adjusting price for user ${targetUserId}, category: ${category}, amount: ${adjustment_amount}`,
+      `${adjustedBy} setting adjustment for user ${targetUserId}, category: ${category}, amount: ${adjustment_amount}`,
     );
+
+    // Get the current adjustment to preserve the other amount
+    const existingAdjustment = await this.userCategoryAdjustmentModel
+      .findOne({ user: targetUserId, category })
+      .lean()
+      .exec();
+
+    // Preserve existing amounts, only update the one being changed
+    const userAdjustmentAmount =
+      adjustedBy === AdjustedBy.USER
+        ? adjustment_amount
+        : (existingAdjustment?.user_adjustment_amount ?? 0);
+
+    const adminAdjustmentAmount =
+      adjustedBy === AdjustedBy.ADMIN
+        ? adjustment_amount
+        : (existingAdjustment?.admin_adjustment_amount ?? 0);
 
     const updateFields: Record<string, unknown> = {
       adjusted_by: adjustedBy,
+      user_adjustment_amount: userAdjustmentAmount,
+      admin_adjustment_amount: adminAdjustmentAmount,
     };
-
-    if (adjustedBy === AdjustedBy.ADMIN) {
-      // Admin is adjusting - update admin_adjustment_amount
-      updateFields.admin_adjustment_amount = adjustment_amount;
-    } else {
-      // User is adjusting - update user_adjustment_amount
-      updateFields.user_adjustment_amount = adjustment_amount;
-    }
 
     const result = await this.userCategoryAdjustmentModel
       .findOneAndUpdate(
@@ -426,13 +438,21 @@ export class ShippingsService {
         { upsert: true, new: true },
       )
       .populate('user', 'firstName lastName email')
+      .lean()
       .exec();
 
+    const totalAdjustment = userAdjustmentAmount + adminAdjustmentAmount;
+
     this.logger.log(
-      `Successfully adjusted price for user ${targetUserId}, category: ${category}`,
+      `Successfully set adjustment for user ${targetUserId}, category: ${category}`,
     );
 
-    return result;
+    return {
+      adjustment: result,
+      user_adjustment_amount: userAdjustmentAmount,
+      admin_adjustment_amount: adminAdjustmentAmount,
+      total_adjustment_amount: totalAdjustment,
+    };
   }
 
   // ========================================

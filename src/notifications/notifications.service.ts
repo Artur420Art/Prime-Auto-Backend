@@ -139,4 +139,188 @@ export class NotificationsService {
   async getAllNotifications() {
     return this.notificationModel.find().sort({ createdAt: -1 }).lean().exec();
   }
+
+  async getNotificationStats({ notificationId }) {
+    if (!Types.ObjectId.isValid(notificationId)) {
+      throw new BadRequestException('Invalid notification ID');
+    }
+
+    const notification = await this.notificationModel
+      .findById(notificationId)
+      .lean()
+      .exec();
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    const [totalCount, readCount, unreadCount] = await Promise.all([
+      this.userNotificationModel.countDocuments({
+        notificationId: new Types.ObjectId(notificationId),
+      }),
+      this.userNotificationModel.countDocuments({
+        notificationId: new Types.ObjectId(notificationId),
+        is_read: true,
+      }),
+      this.userNotificationModel.countDocuments({
+        notificationId: new Types.ObjectId(notificationId),
+        is_read: false,
+      }),
+    ]);
+
+    return {
+      notification,
+      stats: {
+        totalUsers: totalCount,
+        readCount,
+        unreadCount,
+        readPercentage:
+          totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0,
+      },
+    };
+  }
+
+  async getNotificationReadUsers({ notificationId, page = '1', limit = '20' }) {
+    if (!Types.ObjectId.isValid(notificationId)) {
+      throw new BadRequestException('Invalid notification ID');
+    }
+
+    const notification = await this.notificationModel
+      .findById(notificationId)
+      .lean()
+      .exec();
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [userNotifications, totalCount] = await Promise.all([
+      this.userNotificationModel
+        .find({
+          notificationId: new Types.ObjectId(notificationId),
+          is_read: true,
+        })
+        .populate('userId', 'firstName lastName email username customerId companyName')
+        .sort({ readedTime: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.userNotificationModel.countDocuments({
+        notificationId: new Types.ObjectId(notificationId),
+        is_read: true,
+      }),
+    ]);
+
+    const users = userNotifications.map((un) => ({
+      user: un.userId,
+      readedTime: un.readedTime,
+    }));
+
+    return {
+      notification,
+      users,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+        limit: limitNum,
+      },
+    };
+  }
+
+  async getNotificationUnreadUsers({ notificationId, page = '1', limit = '20' }) {
+    if (!Types.ObjectId.isValid(notificationId)) {
+      throw new BadRequestException('Invalid notification ID');
+    }
+
+    const notification = await this.notificationModel
+      .findById(notificationId)
+      .lean()
+      .exec();
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [userNotifications, totalCount] = await Promise.all([
+      this.userNotificationModel
+        .find({
+          notificationId: new Types.ObjectId(notificationId),
+          is_read: false,
+        })
+        .populate('userId', 'firstName lastName email username customerId companyName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.userNotificationModel.countDocuments({
+        notificationId: new Types.ObjectId(notificationId),
+        is_read: false,
+      }),
+    ]);
+
+    const users = userNotifications.map((un) => ({
+      user: un.userId,
+      createdAt: un['createdAt'],
+    }));
+
+    return {
+      notification,
+      users,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+        limit: limitNum,
+      },
+    };
+  }
+
+  async getAllNotificationsWithStats() {
+    const notifications = await this.notificationModel
+      .find()
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    const notificationsWithStats = await Promise.all(
+      notifications.map(async (notification) => {
+        const [readCount, unreadCount] = await Promise.all([
+          this.userNotificationModel.countDocuments({
+            notificationId: notification._id,
+            is_read: true,
+          }),
+          this.userNotificationModel.countDocuments({
+            notificationId: notification._id,
+            is_read: false,
+          }),
+        ]);
+
+        const totalCount = readCount + unreadCount;
+
+        return {
+          ...notification,
+          stats: {
+            totalUsers: totalCount,
+            readCount,
+            unreadCount,
+            readPercentage:
+              totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0,
+          },
+        };
+      }),
+    );
+
+    return notificationsWithStats;
+  }
 }

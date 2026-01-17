@@ -27,8 +27,7 @@ export class CreateVehicleDto {
   purchaseDate: string;
 
   @ApiProperty()
-  @IsEnum(VehicleModel)
-  model: VehicleModel;
+  model: string;
 
   @ApiProperty()
   @IsNotEmpty()

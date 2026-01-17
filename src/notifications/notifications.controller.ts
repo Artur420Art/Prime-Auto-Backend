@@ -22,6 +22,7 @@ import {
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { MarkNotificationReadDto } from './dto/mark-read.dto';
+import { NotificationStatsQueryDto } from './dto/notification-stats-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
@@ -87,6 +88,70 @@ export class NotificationsController {
   @ApiOkResponse({ description: 'List of all notifications' })
   getAllNotifications() {
     return this.notificationsService.getAllNotifications();
+  }
+
+  @Get('admin/stats')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Get all notifications with read/unread stats (Admin only)',
+  })
+  @ApiOkResponse({
+    description: 'List of all notifications with user read statistics',
+  })
+  getAllNotificationsWithStats() {
+    return this.notificationsService.getAllNotificationsWithStats();
+  }
+
+  @Get('admin/:id/stats')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Get notification statistics (Admin only)',
+  })
+  @ApiOkResponse({
+    description: 'Notification details with read/unread statistics',
+  })
+  getNotificationStats(@Param('id') id: string) {
+    return this.notificationsService.getNotificationStats({
+      notificationId: id,
+    });
+  }
+
+  @Get('admin/:id/read-users')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Get list of users who have read a notification (Admin only)',
+  })
+  @ApiOkResponse({
+    description: 'List of users who have seen the notification with read time',
+  })
+  getNotificationReadUsers(
+    @Param('id') id: string,
+    @Query() query: NotificationStatsQueryDto,
+  ) {
+    return this.notificationsService.getNotificationReadUsers({
+      notificationId: id,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get('admin/:id/unread-users')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Get list of users who have NOT read a notification (Admin only)',
+  })
+  @ApiOkResponse({
+    description: 'List of users who have not seen the notification',
+  })
+  getNotificationUnreadUsers(
+    @Param('id') id: string,
+    @Query() query: NotificationStatsQueryDto,
+  ) {
+    return this.notificationsService.getNotificationUnreadUsers({
+      notificationId: id,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Patch('mark-read')
