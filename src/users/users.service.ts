@@ -154,13 +154,13 @@ export class UsersService {
   }
 
   async updatePassword(
-    email: string,
+    username: string,
     newPasswordHash: string,
   ): Promise<User | null> {
-    this.logger.log(`Updating password for user: ${email}`);
+    this.logger.log(`Updating password for user: ${username}`);
     return this.userModel
       .findOneAndUpdate(
-        { email },
+        { username },
         {
           password: newPasswordHash,
           $inc: { tokenVersion: 1 },

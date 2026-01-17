@@ -98,22 +98,22 @@ export class AuthService {
 
   async changePassword(changePasswordDto: ChangePasswordDto) {
     this.logger.log(
-      `Password change request for email: ${changePasswordDto.email}`,
+      `Password change request for username: ${changePasswordDto.username}`,
     );
-    const user = await this.usersService.findByEmail(changePasswordDto.email);
+    const user = await this.usersService.findByUsername(changePasswordDto.username);
     if (!user) {
       this.logger.warn(
-        `Password change failed: User not found (${changePasswordDto.email})`,
+        `Password change failed: User not found (${changePasswordDto.username})`,
       );
       throw new NotFoundException('User not found');
     }
     const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
     await this.usersService.updatePassword(
-      changePasswordDto.email,
+      changePasswordDto.username,
       hashedPassword,
     );
     this.logger.log(
-      `Password changed successfully for email: ${changePasswordDto.email}`,
+      `Password changed successfully for username: ${changePasswordDto.username}`,
     );
     return { message: 'Password changed successfully and tokens revoked' };
   }
