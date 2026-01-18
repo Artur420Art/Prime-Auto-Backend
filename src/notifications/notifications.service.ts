@@ -267,7 +267,7 @@ export class NotificationsService {
         .populate({
           path: 'userId',
           select: 'firstName lastName email username customerId companyName',
-          match: { role: { $ne: 'admin' } },
+          match: { roles: { $ne: 'admin' } },
         })
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -303,7 +303,7 @@ export class NotificationsService {
       .populate({
         path: 'userId',
         select: 'firstName lastName email username customerId companyName',
-        match: { role: { $ne: 'admin' } },
+        match: { roles: { $ne: 'admin' } },
       })
       .sort({ createdAt: -1 })
       .lean()
