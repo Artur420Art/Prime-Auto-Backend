@@ -37,15 +37,7 @@ export class AuthController {
     return this.authService.registerClient(registerDto);
   }
 
-  @Post('register-client')
-  @ApiOperation({ summary: 'Admin registers a new client' })
-  async registerAdmin(@Body() registerDto: RegisterDto) {
-    return this.authService.registerAdmin(registerDto);
-  }
-
   @Post('forgot-password-change')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Change password (forgot password flow) and revoke tokens',
   })
