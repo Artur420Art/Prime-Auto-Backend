@@ -38,6 +38,8 @@ export class AuthController {
   }
 
   @Post('forgot-password-change')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Change password (forgot password flow) and revoke tokens',
   })
