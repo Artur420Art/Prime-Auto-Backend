@@ -204,7 +204,10 @@ export class NotificationsService {
           notificationId: new Types.ObjectId(notificationId),
           is_read: true,
         })
-        .populate('userId', 'firstName lastName email username customerId companyName')
+        .populate(
+          'userId',
+          'firstName lastName email username customerId companyName',
+        )
         .sort({ readedTime: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -233,7 +236,11 @@ export class NotificationsService {
     };
   }
 
-  async getNotificationUnreadUsers({ notificationId, page = '1', limit = '20' }) {
+  async getNotificationUnreadUsers({
+    notificationId,
+    page = '1',
+    limit = '20',
+  }) {
     if (!Types.ObjectId.isValid(notificationId)) {
       throw new BadRequestException('Invalid notification ID');
     }
@@ -257,7 +264,11 @@ export class NotificationsService {
           notificationId: new Types.ObjectId(notificationId),
           is_read: false,
         })
-        .populate('userId', 'firstName lastName email username customerId companyName')
+        .populate({
+          path: 'userId',
+          select: 'firstName lastName email username customerId companyName',
+          match: { role: { $ne: 'admin' } },
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -289,6 +300,11 @@ export class NotificationsService {
   async getAllNotificationsWithStats() {
     const notifications = await this.notificationModel
       .find()
+      .populate({
+        path: 'userId',
+        select: 'firstName lastName email username customerId companyName',
+        match: { role: { $ne: 'admin' } },
+      })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
