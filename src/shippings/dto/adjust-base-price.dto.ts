@@ -2,22 +2,18 @@ import { IsString, IsNumber, IsEnum, IsOptional } from 'class-validator';
 
 /**
  * AdjustBasePriceDto
- * 
+ *
  * Used by admin to adjust base prices for a category.
- * The adjustment_amount will be ADDED to existing base prices (can be negative).
- * 
+ * The adjustment_amount will be SET as the current adjustment from the base price (can be negative).
+ *
  * Example:
  * {
  *   "category": "copart",
- *   "adjustment_amount": 100  // Adds $100 to all copart cities
+ *   "adjustment_amount": 100  // Sets adjustment to $100 for all copart cities
  * }
- * 
- * Or adjust specific city:
- * {
- *   "category": "copart",
- *   "city": "Los Angeles",
- *   "adjustment_amount": -50  // Reduces LA copart by $50
- * }
+ *
+ * This means effective_base_price = base_price + adjustment_amount.
+ * If you call it again with 150, effective_base_price becomes base_price + 150 (NOT base_price + 100 + 150).
  */
 export class AdjustBasePriceDto {
   @IsEnum(['copart', 'iaai', 'manheim'], {

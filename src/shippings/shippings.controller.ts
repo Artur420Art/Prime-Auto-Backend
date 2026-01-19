@@ -33,7 +33,7 @@ import {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ShippingsController {
-  constructor(private readonly shippingsService: ShippingsService) {}
+  constructor(private readonly shippingsService: ShippingsService) { }
 
   // ========================================
   // ADMIN ONLY - Base City Price Management

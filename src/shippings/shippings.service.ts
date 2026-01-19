@@ -37,7 +37,7 @@ export class ShippingsService {
     private cityPriceModel: Model<CityPrice>,
     @InjectModel(UserCategoryAdjustment.name)
     private userCategoryAdjustmentModel: Model<UserCategoryAdjustment>,
-  ) {}
+  ) { }
 
   // ========================================
   // HELPER METHODS
@@ -70,9 +70,7 @@ export class ShippingsService {
   /**
    * Creates an adjustment map for efficient lookup
    */
-  private createAdjustmentMap(
-    adjustments: any[],
-  ): Map<
+  private createAdjustmentMap(adjustments: any[]): Map<
     string,
     {
       adjustment_amount: number;
@@ -120,18 +118,20 @@ export class ShippingsService {
     };
     const totalAdjustment =
       userAdj.user_adjustment_amount + userAdj.admin_adjustment_amount;
+    const baseAdjustment = cityPrice.last_adjustment_amount || 0;
+
     return {
       _id: cityPrice._id,
       city: cityPrice.city,
       category: cityPrice.category,
       base_price: cityPrice.base_price,
-      base_last_adjustment_amount: cityPrice.last_adjustment_amount,
+      base_last_adjustment_amount: baseAdjustment,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
       user_adjustment_amount: userAdj.user_adjustment_amount,
       admin_adjustment_amount: userAdj.admin_adjustment_amount,
       total_adjustment_amount: totalAdjustment,
       adjusted_by: userAdj.adjusted_by,
-      effective_price: cityPrice.base_price + totalAdjustment,
+      effective_price: cityPrice.base_price + baseAdjustment + totalAdjustment,
     };
   }
 
@@ -322,15 +322,6 @@ export class ShippingsService {
   // Adjust Base Price (Admin only)
   // ========================================
 
-  /**
-   * Adjusts base prices for a category (optionally for a specific city)
-   * - Increments/decrements the base_price
-   * - Stores the adjustment amount and date for tracking
-   * - Admin can see this history to know what changes were made
-   *
-   * @param adjustDto - Contains category, optional city, and adjustment amount
-   * @returns Number of modified records
-   */
   async adjustBasePrice(adjustDto: AdjustBasePriceDto) {
     const { category, city, adjustment_amount } = adjustDto;
     this.logger.log(
@@ -339,10 +330,10 @@ export class ShippingsService {
 
     const query = this.buildCityPriceQuery({ city, category });
 
-    // Update base prices and track the adjustment
+    // Update the adjustment amount instead of incrementing base_price
+    // This allows "adjusting from base_price" without losing the original value
     const result = await this.cityPriceModel
       .updateMany(query, {
-        $inc: { base_price: adjustment_amount },
         $set: {
           last_adjustment_amount: adjustment_amount,
           last_adjustment_date: new Date(),
@@ -697,9 +688,9 @@ export class ShippingsService {
 
     const userAdjustment = category
       ? await this.userCategoryAdjustmentModel
-          .findOne({ user: targetUserId, category })
-          .lean()
-          .exec()
+        .findOne({ user: targetUserId, category })
+        .lean()
+        .exec()
       : null;
 
     if (!cityPrice) {
@@ -716,14 +707,16 @@ export class ShippingsService {
 
     const userAdjustmentAmount = userAdjustment?.user_adjustment_amount || 0;
     const adminAdjustmentAmount = userAdjustment?.admin_adjustment_amount || 0;
+    const baseAdjustmentAmount = cityPrice.last_adjustment_amount || 0;
     const totalAdjustment = userAdjustmentAmount + adminAdjustmentAmount;
-    const effectivePrice = cityPrice.base_price + totalAdjustment;
+    const effectivePrice =
+      cityPrice.base_price + baseAdjustmentAmount + totalAdjustment;
 
     return {
       city: cityPrice.city,
       category: cityPrice.category,
       base_price: cityPrice.base_price,
-      base_last_adjustment_amount: cityPrice.last_adjustment_amount,
+      base_last_adjustment_amount: baseAdjustmentAmount,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
       user_adjustment_amount: userAdjustmentAmount,
       admin_adjustment_amount: adminAdjustmentAmount,
