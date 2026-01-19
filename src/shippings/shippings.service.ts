@@ -118,20 +118,20 @@ export class ShippingsService {
     };
     const totalAdjustment =
       userAdj.user_adjustment_amount + userAdj.admin_adjustment_amount;
-    const baseAdjustment = cityPrice.last_adjustment_amount || 0;
 
     return {
       _id: cityPrice._id,
       city: cityPrice.city,
       category: cityPrice.category,
+      default_price: cityPrice.default_price || cityPrice.base_price,
       base_price: cityPrice.base_price,
-      base_last_adjustment_amount: baseAdjustment,
+      base_last_adjustment_amount: cityPrice.last_adjustment_amount,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
       user_adjustment_amount: userAdj.user_adjustment_amount,
       admin_adjustment_amount: userAdj.admin_adjustment_amount,
       total_adjustment_amount: totalAdjustment,
       adjusted_by: userAdj.adjusted_by,
-      effective_price: cityPrice.base_price + baseAdjustment + totalAdjustment,
+      effective_price: cityPrice.base_price + totalAdjustment,
     };
   }
 
@@ -146,6 +146,7 @@ export class ShippingsService {
     const createdCityPrice = new this.cityPriceModel({
       city: createCityPriceDto.city,
       category: createCityPriceDto.category,
+      default_price: createCityPriceDto.base_price,
       base_price: createCityPriceDto.base_price,
     });
     return createdCityPrice.save();
@@ -220,8 +221,17 @@ export class ShippingsService {
 
     const query = this.buildCityPriceQuery({ city, category });
 
+    const updateFields: Record<string, any> = { ...updateDto };
+
+    // If base_price is explicitly updated, also update default_price
+    // to keep them in sync as a new starting point
+    if (updateDto.base_price !== undefined) {
+      updateFields.default_price = updateDto.base_price;
+      updateFields.last_adjustment_amount = 0; // Reset adjustment since new base is set
+    }
+
     const cityPrice = await this.cityPriceModel
-      .findOneAndUpdate(query, updateDto, { new: true })
+      .findOneAndUpdate(query, updateFields, { new: true })
       .exec();
 
     if (!cityPrice) {
@@ -284,6 +294,7 @@ export class ShippingsService {
       }
 
       return {
+        default_price: cityPrice.default_price || cityPrice.base_price,
         base_price: cityPrice.base_price,
         base_adjustment_amount: cityPrice.last_adjustment_amount || 0,
         last_adjustment_date: cityPrice.last_adjustment_date || null,
@@ -330,12 +341,15 @@ export class ShippingsService {
 
     const query = this.buildCityPriceQuery({ city, category });
 
-    // Update the adjustment amount instead of incrementing base_price
-    // This allows "adjusting from base_price" without losing the original value
+    // Increment both base_price and last_adjustment_amount
+    // This keeps default_price intact as the original value
     const result = await this.cityPriceModel
       .updateMany(query, {
-        $set: {
+        $inc: {
+          base_price: adjustment_amount,
           last_adjustment_amount: adjustment_amount,
+        },
+        $set: {
           last_adjustment_date: new Date(),
         },
       })
@@ -707,16 +721,15 @@ export class ShippingsService {
 
     const userAdjustmentAmount = userAdjustment?.user_adjustment_amount || 0;
     const adminAdjustmentAmount = userAdjustment?.admin_adjustment_amount || 0;
-    const baseAdjustmentAmount = cityPrice.last_adjustment_amount || 0;
     const totalAdjustment = userAdjustmentAmount + adminAdjustmentAmount;
-    const effectivePrice =
-      cityPrice.base_price + baseAdjustmentAmount + totalAdjustment;
+    const effectivePrice = cityPrice.base_price + totalAdjustment;
 
     return {
       city: cityPrice.city,
       category: cityPrice.category,
+      default_price: cityPrice.default_price || cityPrice.base_price,
       base_price: cityPrice.base_price,
-      base_last_adjustment_amount: baseAdjustmentAmount,
+      base_last_adjustment_amount: cityPrice.last_adjustment_amount,
       base_last_adjustment_date: cityPrice.last_adjustment_date,
       user_adjustment_amount: userAdjustmentAmount,
       admin_adjustment_amount: adminAdjustmentAmount,
