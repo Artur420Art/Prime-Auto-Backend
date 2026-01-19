@@ -341,18 +341,20 @@ export class ShippingsService {
 
     const query = this.buildCityPriceQuery({ city, category });
 
-    // Increment both base_price and last_adjustment_amount
-    // This keeps default_price intact as the original value
+    // Use aggregation pipeline to set base_price relative to default_price
+    // This ensures: base_price = default_price + adjustment_amount
+    // Example: if default=100 and adj=200 -> base=300
+    // Then if adj=300 -> base=400 (NOT 600)
     const result = await this.cityPriceModel
-      .updateMany(query, {
-        $inc: {
-          base_price: adjustment_amount,
-          last_adjustment_amount: adjustment_amount,
+      .updateMany(query, [
+        {
+          $set: {
+            last_adjustment_amount: adjustment_amount,
+            base_price: { $add: ['$default_price', adjustment_amount] },
+            last_adjustment_date: new Date(),
+          },
         },
-        $set: {
-          last_adjustment_date: new Date(),
-        },
-      })
+      ])
       .exec();
 
     if (result.matchedCount === 0) {
