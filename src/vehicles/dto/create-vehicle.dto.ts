@@ -71,6 +71,18 @@ export class CreateVehicleDto {
   @IsOptional()
   invoice?: unknown;
 
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  vehiclePdf?: unknown;
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  insurancePdf?: unknown;
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  shippingPdf?: unknown;
+
   @ApiProperty({
     type: 'array',
     items: { type: 'string', format: 'binary' },

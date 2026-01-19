@@ -46,6 +46,9 @@ export class VehiclesController {
     FileFieldsInterceptor(
       [
         { name: 'invoice', maxCount: 1 },
+        { name: 'vehiclePdf', maxCount: 1 },
+        { name: 'insurancePdf', maxCount: 1 },
+        { name: 'shippingPdf', maxCount: 1 },
         { name: 'vehiclePhotos', maxCount: 25 },
       ],
       {
@@ -60,15 +63,24 @@ export class VehiclesController {
     @UploadedFiles()
     files?: {
       invoice?: Express.Multer.File[];
+      vehiclePdf?: Express.Multer.File[];
+      insurancePdf?: Express.Multer.File[];
+      shippingPdf?: Express.Multer.File[];
       vehiclePhotos?: Express.Multer.File[];
     },
   ) {
     const invoiceFile = files?.invoice?.[0];
+    const vehiclePdfFile = files?.vehiclePdf?.[0];
+    const insurancePdfFile = files?.insurancePdf?.[0];
+    const shippingPdfFile = files?.shippingPdf?.[0];
     const photos = files?.vehiclePhotos ?? [];
 
     return this.vehiclesService.create({
       createVehicleDto,
       invoiceFile,
+      vehiclePdfFile,
+      insurancePdfFile,
+      shippingPdfFile,
       photos,
     });
   }
@@ -108,6 +120,9 @@ export class VehiclesController {
     FileFieldsInterceptor(
       [
         { name: 'invoice', maxCount: 1 },
+        { name: 'vehiclePdf', maxCount: 1 },
+        { name: 'insurancePdf', maxCount: 1 },
+        { name: 'shippingPdf', maxCount: 1 },
         { name: 'vehiclePhotos', maxCount: 25 },
       ],
       {
@@ -122,18 +137,27 @@ export class VehiclesController {
     @UploadedFiles()
     files?: {
       invoice?: Express.Multer.File[];
+      vehiclePdf?: Express.Multer.File[];
+      insurancePdf?: Express.Multer.File[];
+      shippingPdf?: Express.Multer.File[];
       vehiclePhotos?: Express.Multer.File[];
     },
   ) {
     const invoiceFile = files?.invoice?.[0];
+    const vehiclePdfFile = files?.vehiclePdf?.[0];
+    const insurancePdfFile = files?.insurancePdf?.[0];
+    const shippingPdfFile = files?.shippingPdf?.[0];
     const photos = files?.vehiclePhotos ?? [];
 
-    return this.vehiclesService.update(
+    return this.vehiclesService.update({
       id,
       updateVehicleDto,
       invoiceFile,
+      vehiclePdfFile,
+      insurancePdfFile,
+      shippingPdfFile,
       photos,
-    );
+    });
   }
 
   @Delete(':id/photos')

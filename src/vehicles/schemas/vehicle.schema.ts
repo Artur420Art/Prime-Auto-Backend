@@ -70,6 +70,18 @@ export class Vehicle extends Document {
   @ApiProperty({ required: false })
   @Prop({ default: false })
   insurance: boolean;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  vehiclePdf?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  insurancePdf?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  shippingPdf?: string;
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);

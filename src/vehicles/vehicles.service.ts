@@ -23,7 +23,7 @@ export class VehiclesService {
     @InjectModel(Vehicle.name) private vehicleModel: Model<Vehicle>,
     private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   private async resolveUserObjectId(
     idOrCustomerId: string,
@@ -44,13 +44,50 @@ export class VehiclesService {
     return user._id as Types.ObjectId;
   }
 
+  private async uploadOrUpdateFile({
+    file,
+    existingUrl,
+    folder,
+    prefix,
+    vin,
+  }: {
+    file: Express.Multer.File;
+    existingUrl?: string;
+    folder: string;
+    prefix: string;
+    vin: string;
+  }): Promise<string> {
+    if (existingUrl && existingUrl.startsWith('http')) {
+      try {
+        const key = this.s3Service.extractKeyFromUrl(existingUrl);
+        await this.s3Service.delete(key);
+      } catch (error) {
+        this.logger.warn(`Failed to delete old file: ${error.message}`);
+      }
+    }
+
+    const key = `vehicles/${vin}/${folder}/${prefix}-${Date.now()}-${file.originalname}`;
+    const { url } = await this.s3Service.upload({
+      key,
+      file: file.buffer,
+      contentType: file.mimetype,
+    });
+    return url;
+  }
+
   async create({
     createVehicleDto,
     invoiceFile,
+    vehiclePdfFile,
+    insurancePdfFile,
+    shippingPdfFile,
     photos,
   }: {
     createVehicleDto: CreateVehicleDto;
     invoiceFile?: Express.Multer.File;
+    vehiclePdfFile?: Express.Multer.File;
+    insurancePdfFile?: Express.Multer.File;
+    shippingPdfFile?: Express.Multer.File;
     photos?: Express.Multer.File[];
   }): Promise<Vehicle> {
     this.logger.log(`Creating vehicle: ${createVehicleDto.vin}`);
@@ -68,6 +105,39 @@ export class VehiclesService {
         contentType: invoiceFile.mimetype,
       });
       invoiceId = url;
+    }
+
+    let vehiclePdf: string | undefined = undefined;
+    if (vehiclePdfFile) {
+      const key = `vehicles/${createVehicleDto.vin}/pdfs/vehicle-${Date.now()}-${vehiclePdfFile.originalname}`;
+      const { url } = await this.s3Service.upload({
+        key,
+        file: vehiclePdfFile.buffer,
+        contentType: vehiclePdfFile.mimetype,
+      });
+      vehiclePdf = url;
+    }
+
+    let insurancePdf: string | undefined = undefined;
+    if (insurancePdfFile) {
+      const key = `vehicles/${createVehicleDto.vin}/pdfs/insurance-${Date.now()}-${insurancePdfFile.originalname}`;
+      const { url } = await this.s3Service.upload({
+        key,
+        file: insurancePdfFile.buffer,
+        contentType: insurancePdfFile.mimetype,
+      });
+      insurancePdf = url;
+    }
+
+    let shippingPdf: string | undefined = undefined;
+    if (shippingPdfFile) {
+      const key = `vehicles/${createVehicleDto.vin}/pdfs/shipping-${Date.now()}-${shippingPdfFile.originalname}`;
+      const { url } = await this.s3Service.upload({
+        key,
+        file: shippingPdfFile.buffer,
+        contentType: shippingPdfFile.mimetype,
+      });
+      shippingPdf = url;
     }
 
     const vehiclePhotos: string[] = [];
@@ -91,6 +161,9 @@ export class VehiclesService {
       ...createVehicleDto,
       client: clientObjectId,
       invoiceId,
+      vehiclePdf,
+      insurancePdf,
+      shippingPdf,
       vehiclePhotos,
     });
     return createdVehicle.save();
@@ -184,12 +257,23 @@ export class VehiclesService {
     return vehicle;
   }
 
-  async update(
-    id: string,
-    updateVehicleDto: UpdateVehicleDto,
-    invoiceFile?: Express.Multer.File,
-    photos?: Express.Multer.File[],
-  ): Promise<Vehicle> {
+  async update({
+    id,
+    updateVehicleDto,
+    invoiceFile,
+    vehiclePdfFile,
+    insurancePdfFile,
+    shippingPdfFile,
+    photos,
+  }: {
+    id: string;
+    updateVehicleDto: UpdateVehicleDto;
+    invoiceFile?: Express.Multer.File;
+    vehiclePdfFile?: Express.Multer.File;
+    insurancePdfFile?: Express.Multer.File;
+    shippingPdfFile?: Express.Multer.File;
+    photos?: Express.Multer.File[];
+  }): Promise<Vehicle> {
     this.logger.log(`Updating vehicle with ID: ${id}`);
 
     const existingVehicle = await this.findOne(id);
@@ -287,28 +371,43 @@ export class VehiclesService {
     delete updateData.reorderedPhotoUrls;
 
     if (invoiceFile) {
-      // Delete old invoice if it exists
-      if (
-        existingVehicle.invoiceId &&
-        existingVehicle.invoiceId.startsWith('http')
-      ) {
-        try {
-          const key = this.s3Service.extractKeyFromUrl(
-            existingVehicle.invoiceId,
-          );
-          await this.s3Service.delete(key);
-        } catch (error) {
-          this.logger.warn(`Failed to delete old invoice: ${error.message}`);
-        }
-      }
-
-      const key = `vehicles/${existingVehicle.vin}/invoices/${Date.now()}-${invoiceFile.originalname}`;
-      const { url } = await this.s3Service.upload({
-        key,
-        file: invoiceFile.buffer,
-        contentType: invoiceFile.mimetype,
+      updateData.invoiceId = await this.uploadOrUpdateFile({
+        file: invoiceFile,
+        existingUrl: existingVehicle.invoiceId,
+        folder: 'invoices',
+        prefix: 'invoice',
+        vin: existingVehicle.vin,
       });
-      updateData.invoiceId = url;
+    }
+
+    if (vehiclePdfFile) {
+      updateData.vehiclePdf = await this.uploadOrUpdateFile({
+        file: vehiclePdfFile,
+        existingUrl: existingVehicle.vehiclePdf,
+        folder: 'pdfs',
+        prefix: 'vehicle',
+        vin: existingVehicle.vin,
+      });
+    }
+
+    if (insurancePdfFile) {
+      updateData.insurancePdf = await this.uploadOrUpdateFile({
+        file: insurancePdfFile,
+        existingUrl: existingVehicle.insurancePdf,
+        folder: 'pdfs',
+        prefix: 'insurance',
+        vin: existingVehicle.vin,
+      });
+    }
+
+    if (shippingPdfFile) {
+      updateData.shippingPdf = await this.uploadOrUpdateFile({
+        file: shippingPdfFile,
+        existingUrl: existingVehicle.shippingPdf,
+        folder: 'pdfs',
+        prefix: 'shipping',
+        vin: existingVehicle.vin,
+      });
     }
 
     const updatedVehicle = await this.vehicleModel
@@ -367,6 +466,21 @@ export class VehiclesService {
 
     if (vehicle.invoiceId && vehicle.invoiceId.startsWith('http')) {
       const key = this.s3Service.extractKeyFromUrl(vehicle.invoiceId);
+      keysToDelete.push(key);
+    }
+
+    if (vehicle.vehiclePdf && vehicle.vehiclePdf.startsWith('http')) {
+      const key = this.s3Service.extractKeyFromUrl(vehicle.vehiclePdf);
+      keysToDelete.push(key);
+    }
+
+    if (vehicle.insurancePdf && vehicle.insurancePdf.startsWith('http')) {
+      const key = this.s3Service.extractKeyFromUrl(vehicle.insurancePdf);
+      keysToDelete.push(key);
+    }
+
+    if (vehicle.shippingPdf && vehicle.shippingPdf.startsWith('http')) {
+      const key = this.s3Service.extractKeyFromUrl(vehicle.shippingPdf);
       keysToDelete.push(key);
     }
 
