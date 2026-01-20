@@ -26,8 +26,10 @@ export class CreateVehicleDto {
   @IsDateString()
   purchaseDate: string;
 
-  @ApiProperty()
-  model: string;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  model?: string;
 
   @ApiProperty()
   @IsNotEmpty()
