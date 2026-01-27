@@ -46,7 +46,7 @@ export class CalculatorService {
         }),
       );
 
-      return this.validateSrcAmResponse({ data });
+      return data;
     } catch (error) {
       this.logger.error(`src.am calculator error: ${error?.message ?? error}`);
       throw new BadGatewayException('Calculator service is unavailable');
@@ -65,28 +65,5 @@ export class CalculatorService {
         },
       ]);
     }
-  };
-
-  private readonly validateSrcAmResponse = ({
-    data,
-  }: {
-    data: SrcAmVehicleTaxesResponse;
-  }): SrcAmVehicleTaxesResponse => {
-    const isValid =
-      data &&
-      typeof data === 'object' &&
-      typeof (data as any).globTax === 'number' &&
-      typeof (data as any).envTaxPay === 'number' &&
-      typeof (data as any).nds === 'number' &&
-      typeof (data as any).sumPay === 'number' &&
-      typeof (data as any).type === 'string';
-
-    if (!isValid) {
-      throw new BadGatewayException(
-        'Invalid response from calculator provider',
-      );
-    }
-
-    return data;
   };
 }
